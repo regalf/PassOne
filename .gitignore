@@ -12,6 +12,9 @@ server/test/config.yaml
 # Docs
 PLAN.md
 
+# Release artifacts
+dist/
+
 # IDE
 .idea/
 *.iml
