@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="1024"
+   height="1024"
+   viewBox="0 0 512 512"
+   version="1.1"
+   xmlns="http://www.w3.org/2000/svg">
+  <g
+     id="g17"
+     transform="translate(51.2,51.2) scale(0.8)">
+    <circle
+       cx="256"
+       cy="256"
+       r="175.34119"
+       fill="#0f0f0f" />
+    <circle
+       cx="256"
+       cy="256"
+       r="129.91602"
+       fill="#383838" />
+    <g
+       transform="translate(0,-1.2500019)">
+      <circle
+         cx="256"
+         cy="214.58223"
+         r="32.706135"
+         fill="#0f0f0f" />
+      <rect
+         width="38.263287"
+         height="120.24593"
+         x="236.86836"
+         y="212.37798"
+         ry="24.592119"
+         fill="#0f0f0f" />
+    </g>
+  </g>
+</svg>

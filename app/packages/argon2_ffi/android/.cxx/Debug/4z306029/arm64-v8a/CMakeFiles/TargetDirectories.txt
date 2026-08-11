@@ -1,0 +1,3 @@
+/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/android/.cxx/Debug/4z306029/arm64-v8a/CMakeFiles/argon2_ffi.dir
+/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/android/.cxx/Debug/4z306029/arm64-v8a/CMakeFiles/edit_cache.dir
+/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/android/.cxx/Debug/4z306029/arm64-v8a/CMakeFiles/rebuild_cache.dir

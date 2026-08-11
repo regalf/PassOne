@@ -1,0 +1,14 @@
+# Server Go
+server/passone
+server/passone.db
+server/*.db
+server/webui/
+
+# Server test artifacts
+server/test/passone
+server/test/*.db
+server/test/config.yaml
+
+# IDE
+.idea/
+*.iml

@@ -1,0 +1,10 @@
+# ninja log v5
+0	78	1786409660582488220	CMakeFiles/argon2_ffi.dir/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/ios/Classes/argon2_ffi.c.o	54fc7e201185fdcb
+78	119	1786409660623488657	CMakeFiles/argon2_ffi.dir/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/ios/Classes/argon2src/thread.c.o	a12fad4cae7f3796
+4	218	1786409660711489594	CMakeFiles/argon2_ffi.dir/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/ios/Classes/argon2src/genkat.c.o	c6efa2c9debf0d46
+119	220	1786409660723489722	CMakeFiles/argon2_ffi.dir/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/ios/Classes/argon2src/blake2/blake2b.c.o	8d7585ce434dfa1e
+1	223	1786409660719489679	CMakeFiles/argon2_ffi.dir/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/ios/Classes/argon2src/argon2.c.o	2915af53efe331eb
+4	232	1786409660736489860	CMakeFiles/argon2_ffi.dir/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/ios/Classes/argon2src/ref.c.o	9e3a339f5642a303
+2	239	1786409660743489935	CMakeFiles/argon2_ffi.dir/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/ios/Classes/argon2src/encoding.c.o	6eb60edb432ceb0d
+2	252	1786409660757490084	CMakeFiles/argon2_ffi.dir/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/ios/Classes/argon2src/core.c.o	890585485c4980e7
+252	287	1786409660791490446	/home/RegalDragoon200/Progetti/PassOne/app/build/argon2_ffi/intermediates/cxx/Debug/4z306029/obj/armeabi-v7a/libargon2_ffi.so	e8c3a5651b690a15

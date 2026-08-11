@@ -1,0 +1,18 @@
+                        -H/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/android
+-DCMAKE_SYSTEM_NAME=Android
+-DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+-DCMAKE_SYSTEM_VERSION=21
+-DANDROID_PLATFORM=android-21
+-DANDROID_ABI=x86
+-DCMAKE_ANDROID_ARCH_ABI=x86
+-DANDROID_NDK=/home/RegalDragoon200/Android/Sdk/ndk/27.0.12077973
+-DCMAKE_ANDROID_NDK=/home/RegalDragoon200/Android/Sdk/ndk/27.0.12077973
+-DCMAKE_TOOLCHAIN_FILE=/home/RegalDragoon200/Android/Sdk/ndk/27.0.12077973/build/cmake/android.toolchain.cmake
+-DCMAKE_MAKE_PROGRAM=/home/RegalDragoon200/Android/Sdk/cmake/3.22.1/bin/ninja
+-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=/home/RegalDragoon200/Progetti/PassOne/app/build/argon2_ffi/intermediates/cxx/RelWithDebInfo/u5a305r2/obj/x86
+-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=/home/RegalDragoon200/Progetti/PassOne/app/build/argon2_ffi/intermediates/cxx/RelWithDebInfo/u5a305r2/obj/x86
+-DCMAKE_BUILD_TYPE=RelWithDebInfo
+-B/home/RegalDragoon200/Progetti/PassOne/app/packages/argon2_ffi/android/.cxx/RelWithDebInfo/u5a305r2/x86
+-GNinja
+                        Build command args: []
+                        Version: 2

@@ -1,0 +1,62 @@
+group 'com.example.argon2_ffi'
+version '1.0-SNAPSHOT'
+
+buildscript {
+    ext.kotlin_version = '1.8.10'
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+
+kotlin {
+    jvmToolchain(17)
+}
+
+android {
+    namespace "design.codeux.argon2_ffi"
+    compileSdkVersion 34
+    ndkVersion System.getProperty("design.codeux.ndkVersion", "27.0.12077973")
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+    defaultConfig {
+        minSdkVersion 21
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    lintOptions {
+        disable 'InvalidPackage'
+    }
+
+    externalNativeBuild {
+        // Encapsulates your CMake build configurations.
+        cmake {
+            version "3.22.1"
+            // f-droid uses 3.7, let's hope it works this way.
+            //version "3.6.0+"
+            // Provides a relative path to your CMake build script.
+            path "CMakeLists.txt"
+        }
+    }
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation "androidx.annotation:annotation:1.1.0"
+}
