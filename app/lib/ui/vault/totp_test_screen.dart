@@ -11,18 +11,18 @@ import '../../crypto/totp.dart';
 import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
 
-/// Seed memorizzato in memoria per l'intera durata del processo: viene
-/// generato UNA volta per avvio dell'app e riusato a ogni riapertura della
-/// pagina, così il QR (e la voce importata nel vault) restano validi.
+/// Seed stored in memory for the entire lifetime of the process: it is
+/// generated ONCE per app launch and reused on every reopening of the
+/// page, so the QR (and the entry imported into the vault) stays valid.
 String? _cachedSeed;
 
 String _buildUri(String secret) =>
     'otpauth://totp/${Uri.encodeComponent('PassOne:Test')}?secret=$secret&issuer=PassOne';
 
-/// Pagina di verifica TOTP: mostra il seed (generato una volta per avvio)
-/// come QR otpauth://totp/... e il codice atteso nella stessa finestra di 30s
-/// dell'app. Inquadrando il QR col tab TOTP (Aggiungi) la voce importata deve
-/// mostrare lo stesso codice di questa pagina.
+/// TOTP verification page: shows the seed (generated once per launch)
+/// as an otpauth://totp/... QR and the expected code within the same 30s
+/// window as the app. Pointing the QR at the TOTP tab (Add), the imported
+/// entry must show the same code as this page.
 class TotpTestScreen extends ConsumerStatefulWidget {
   const TotpTestScreen({super.key});
 
@@ -125,8 +125,8 @@ class _TotpTestScreenState extends ConsumerState<TotpTestScreen> {
       _code = code;
       _left = left;
     });
-    // Se è in corso una verifica mostrata, ricalcolala a ogni tick così il
-    // responso non resta "vero" quando il codice è già cambiato.
+    // If a shown verification is in progress, recompute it on each tick so the
+    // result does not stay "true" when the code has already changed.
     if (_verified != null) _verify();
   }
 

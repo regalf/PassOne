@@ -1,6 +1,6 @@
 import 'dart:math';
 
-/// Generatore di password casuali.
+/// Random password generator.
 class PasswordGenerator {
   static const String _lower = 'abcdefghijklmnopqrstuvwxyz';
   static const String _upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -34,7 +34,7 @@ class PasswordGenerator {
     }
     final all = pools.join();
     final buf = StringBuffer();
-    // Garantisce almeno un carattere da ogni pool attivo.
+    // Guarantees at least one character from each active pool.
     for (final pool in pools) {
       buf.write(pool[rng.nextInt(pool.length)]);
     }
@@ -45,7 +45,7 @@ class PasswordGenerator {
     return chars.join();
   }
 
-  /// Stima dell'entropia in bit.
+  /// Entropy estimate in bits.
   double get entropy {
     final poolSize =
         (useLower ? _lower.length : 0) +

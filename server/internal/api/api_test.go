@@ -83,7 +83,7 @@ func put(t *testing.T, url, path, token string, body any) (int, map[string]any) 
 	return res.StatusCode, out
 }
 
-// setupPayload costruisce un payload di setup realistico.
+// setupPayload builds a realistic setup payload.
 func setupPayload(username, invite string) map[string]any {
 	p := map[string]any{
 		"username":               username,
@@ -117,7 +117,7 @@ func TestHealth(t *testing.T) {
 
 func TestPrelogin(t *testing.T) {
 	ts, _ := newTestServer(t)
-	// Utente sconosciuto -> status unknown + salt random + kdf default
+	// Unknown user -> status unknown + random salt + default kdf
 	code, out := post(t, ts.URL, "/api/v1/auth/prelogin", "", map[string]any{"username": "ghost"})
 	if code != 200 {
 		t.Fatalf("prelogin = %d", code)
@@ -126,7 +126,7 @@ func TestPrelogin(t *testing.T) {
 		t.Fatalf("prelogin unknown = %v", out)
 	}
 
-	// Setup utente reale, poi prelogin deve riflettere salt e kdf
+	// Real user setup, then prelogin must reflect the salt and kdf
 	post(t, ts.URL, "/api/v1/auth/setup", "", setupPayload("henry", ""))
 	code, out = post(t, ts.URL, "/api/v1/auth/prelogin", "", map[string]any{"username": "henry"})
 	if code != 200 {
@@ -200,7 +200,7 @@ func TestVaultGetPutAndConflict(t *testing.T) {
 		t.Fatalf("revision dopo put = %v", out["vault_revision"])
 	}
 
-	// Conflitto: base_revision stantia.
+	// Conflict: stale base_revision.
 	code, out = put(t, ts.URL, "/api/v1/vault", token, map[string]any{
 		"base_revision": 1,
 		"vault_blob_b64": crypto.EncodeBase64([]byte("stale")),
@@ -220,24 +220,24 @@ func TestPendingInviteFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Login mentre pending -> 409
+	// Login while pending -> 409
 	code, out := post(t, ts.URL, "/api/v1/auth/login", "", map[string]any{
 		"username": "dave", "auth_hash_b64": crypto.EncodeBase64([]byte("x")),
 	})
 	if code != 409 {
 		t.Fatalf("atteso 409 pending, status=%d", code)
 	}
-	// Setup con invite token sbagliato -> 403
+	// Setup with wrong invite token -> 403
 	code, _ = post(t, ts.URL, "/api/v1/auth/setup", "", setupPayload("dave", "wrong-token"))
 	if code != 403 {
 		t.Fatalf("atteso 403, status=%d", code)
 	}
-	// Setup corretto
+	// Correct setup
 	code, out = post(t, ts.URL, "/api/v1/auth/setup", "", setupPayload("dave", token))
 	if code != 200 {
 		t.Fatalf("setup con invite = %d, body=%v", code, out)
 	}
-	// login ora funziona
+	// login now works
 	code, _ = post(t, ts.URL, "/api/v1/auth/login", "", map[string]any{
 		"username": "dave", "auth_hash_b64": crypto.EncodeBase64([]byte("fake-auth-hash-32-bytes-long!!!")),
 	})
@@ -277,7 +277,7 @@ func TestAdminUsers(t *testing.T) {
 		t.Fatalf("list users = %d", res.StatusCode)
 	}
 
-	// Token admin sbagliato -> 401
+	// Wrong admin token -> 401
 	res, err = http.Get(ts.URL + "/api/v1/admin/users")
 	if err != nil {
 		t.Fatal(err)
@@ -293,7 +293,7 @@ func TestChangePasswordAndLogoutAll(t *testing.T) {
 	_, out := post(t, ts.URL, "/api/v1/auth/setup", "", setupPayload("frank", ""))
 	token := out["token"].(string)
 
-	// Cambio password con password vecchia sbagliata -> 401
+	// Password change with wrong old password -> 401
 	code, _ := post(t, ts.URL, "/api/v1/auth/change-password", token, map[string]any{
 		"old_auth_hash_b64": crypto.EncodeBase64([]byte("wrong-old")),
 		"new":               map[string]any{},
@@ -302,7 +302,7 @@ func TestChangePasswordAndLogoutAll(t *testing.T) {
 		t.Fatalf("atteso 401, status=%d", code)
 	}
 
-	// Cambio password corretto
+	// Correct password change
 	code, _ = post(t, ts.URL, "/api/v1/auth/change-password", token, map[string]any{
 		"old_auth_hash_b64": crypto.EncodeBase64([]byte("fake-auth-hash-32-bytes-long!!!")),
 		"new": map[string]any{
@@ -327,7 +327,7 @@ func TestChangePasswordAndLogoutAll(t *testing.T) {
 	if res.StatusCode != 204 {
 		t.Fatalf("logout-all = %d", res.StatusCode)
 	}
-	// La vecchia sessione ora non vale più
+	// The old session is now invalid
 	code, _ = get(t, ts.URL, "/api/v1/vault", token)
 	if code != 401 {
 		t.Fatalf("atteso 401 dopo logout-all, status=%d", code)
@@ -336,14 +336,14 @@ func TestChangePasswordAndLogoutAll(t *testing.T) {
 
 func TestRecoverFlow(t *testing.T) {
 	ts, _ := newTestServer(t)
-	// Setup con recovery key
+	// Setup with recovery key
 	p := setupPayload("grace", "")
 	p["recovery_hash_b64"] = crypto.EncodeBase64([]byte("recovery-hash-1"))
 	p["vault_key_wrapped_recov_b64"] = crypto.EncodeBase64([]byte("wrapped-recov"))
 	_, out := post(t, ts.URL, "/api/v1/auth/setup", "", p)
 	token := out["token"].(string)
 
-	// Recover-payload: verifica la key e restituisce il vault criptato senza bruciarla
+	// Recover-payload: verifies the key and returns the encrypted vault without burning it
 	code, out := post(t, ts.URL, "/api/v1/auth/recover-payload", "", map[string]any{
 		"username": "grace", "recovery_hash_b64": crypto.EncodeBase64([]byte("recovery-hash-1")),
 	})
@@ -353,7 +353,7 @@ func TestRecoverFlow(t *testing.T) {
 	if out["vault_key_wrapped_recov_b64"] != crypto.EncodeBase64([]byte("wrapped-recov")) {
 		t.Fatalf("payload recov key sbagliata: %v", out["vault_key_wrapped_recov_b64"])
 	}
-	// La key NON è bruciata dal recover-payload
+	// The key is NOT burned by recover-payload
 	code, _ = post(t, ts.URL, "/api/v1/auth/recover-payload", "", map[string]any{
 		"username": "grace", "recovery_hash_b64": crypto.EncodeBase64([]byte("recovery-hash-1")),
 	})
@@ -361,7 +361,7 @@ func TestRecoverFlow(t *testing.T) {
 		t.Fatalf("recover-payload deve essere idempotente, status=%d", code)
 	}
 
-	// Recovery con hash errato -> 401
+	// Recovery with wrong hash -> 401
 	code, _ = post(t, ts.URL, "/api/v1/auth/recover", "", map[string]any{
 		"username": "grace", "recovery_hash_b64": crypto.EncodeBase64([]byte("wrong")),
 		"new": map[string]any{},
@@ -370,7 +370,7 @@ func TestRecoverFlow(t *testing.T) {
 		t.Fatalf("atteso 401, status=%d", code)
 	}
 
-	// Recovery corretto -> nuova sessione, chiave bruciata, sessioni revocate
+	// Correct recovery -> new session, burned key, revoked sessions
 	code, out = post(t, ts.URL, "/api/v1/auth/recover", "", map[string]any{
 		"username": "grace", "recovery_hash_b64": crypto.EncodeBase64([]byte("recovery-hash-1")),
 		"new": map[string]any{
@@ -387,12 +387,12 @@ func TestRecoverFlow(t *testing.T) {
 	}
 	newToken := out["token"].(string)
 
-	// Vecchia sessione revocata
+	// Old session revoked
 	code, _ = get(t, ts.URL, "/api/v1/vault", token)
 	if code != 401 {
 		t.Fatalf("atteso 401 vecchia sessione, status=%d", code)
 	}
-	// Nuova sessione funziona
+	// New session works
 	code, out = get(t, ts.URL, "/api/v1/vault", newToken)
 	if code != 200 {
 		t.Fatalf("vault con nuova sessione = %d", code)
@@ -400,7 +400,7 @@ func TestRecoverFlow(t *testing.T) {
 	if out["recovery_enabled"] != true {
 		t.Fatalf("recovery_enabled = %v", out["recovery_enabled"])
 	}
-	// La vecchia recovery key è bruciata
+	// The old recovery key is burned
 	code, _ = post(t, ts.URL, "/api/v1/auth/recover", "", map[string]any{
 		"username": "grace", "recovery_hash_b64": crypto.EncodeBase64([]byte("recovery-hash-1")),
 		"new": map[string]any{

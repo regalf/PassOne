@@ -18,16 +18,16 @@ func timeNow() time.Time { return time.Now().UTC() }
 
 var errUsernameTaken = errors.New("username già in uso")
 
-// Server è il server HTTP di PassOne.
+// Server is the PassOne HTTP server.
 type Server struct {
 	cfg   *config.Config
 	store *store.Store
 	rl    *RateLimiter
 	log   *slog.Logger
-	admin string // admin token effettivo (config o generato)
+	admin string // effective admin token (config or generated)
 }
 
-// New crea un nuovo Server.
+// New creates a new Server.
 func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
 	admin := cfg.AdminToken
 	if admin == "" {
@@ -42,10 +42,10 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
 	}
 }
 
-// AdminToken restituisce il token admin effettivo (utile al CLI per stamparlo al primo avvio).
+// AdminToken returns the effective admin token (useful for the CLI to print it on first startup).
 func (s *Server) AdminToken() string { return s.admin }
 
-// Routes costruisce il router con tutti i middleware.
+// Routes builds the router with all middleware.
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 
@@ -71,7 +71,7 @@ func (s *Server) Routes() http.Handler {
 	return mux
 }
 
-// ---------- helper risposte ----------
+// ---------- response helpers ----------
 
 type apiError struct {
 	Error string `json:"error"`
@@ -98,7 +98,7 @@ func bearerToken(r *http.Request) string {
 	return strings.TrimPrefix(h, "Bearer ")
 }
 
-// ---------- handler di base ----------
+// ---------- base handlers ----------
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	status := "ok"

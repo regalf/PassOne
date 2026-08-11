@@ -309,7 +309,7 @@ class SettingsScreen extends ConsumerWidget {
       return;
     }
 
-    // enable / rotate: chiede la password attuale
+    // enable / rotate: asks for the current password
     await _promptOldPasswordAndRun(context, ref,
         (oldPw) async {
       final key = await notifier.changePassword(

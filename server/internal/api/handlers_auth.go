@@ -28,8 +28,8 @@ type setupRequest struct {
 	DeviceName                string       `json:"device_name"`
 }
 
-// validateKDF verifica che i parametri KDF siano ragionevoli (anti-DoS).
-// Per argon2id m è in KiB (il limite di config è in MiB); pbkdf2 non ha m/p.
+// validateKDF checks that the KDF parameters are reasonable (anti-DoS).
+// For argon2id m is in KiB (the config limit is in MiB); pbkdf2 has no m/p.
 func (s *Server) validateKDF(k kdfInput) bool {
 	switch k.Algorithm {
 	case "argon2id":
@@ -81,7 +81,7 @@ func toPublic(u *store.User) userPublic {
 	}
 }
 
-// handleSetup registra un nuovo utente (direttamente se consentito) o attiva un utente pending.
+// handleSetup registers a new user (directly if allowed) or activates a pending user.
 func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	var req setupRequest
 	if err := decodeJSON(w, r, &req); err != nil {
@@ -154,7 +154,7 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.InviteToken != "" {
-		// Flusso admin: l'utente deve esistere come pending.
+		// Admin flow: the user must exist as pending.
 		existing, err := s.store.GetUserByUsername(username)
 		if err != nil || existing.Status != store.StatusPending {
 			writeErr(w, http.StatusConflict, "account non in attesa di configurazione", "not_pending")
@@ -198,8 +198,8 @@ type preloginRequest struct {
 	Username string `json:"username"`
 }
 
-// handlePrelogin restituisce salt + parametri KDF per derivare la chiave prima del login.
-// Per username sconosciuti risponde con dati casuali (anti-enumeration) e status "unknown".
+// handlePrelogin returns salt + KDF parameters to derive the key before login.
+// For unknown usernames it responds with random data (anti-enumeration) and status "unknown".
 func (s *Server) handlePrelogin(w http.ResponseWriter, r *http.Request) {
 	var req preloginRequest
 	if err := decodeJSON(w, r, &req); err != nil {
@@ -275,7 +275,7 @@ func (s *Server) handleLogoutAll(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// completeSession crea una sessione e restituisce la risposta standard.
+// completeSession creates a session and returns the standard response.
 func (s *Server) completeSession(w http.ResponseWriter, u *store.User, deviceName string) {
 	token, err := s.store.CreateSession(u.ID, deviceName, s.cfg.SessionTTL)
 	if err != nil {

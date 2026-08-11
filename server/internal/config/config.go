@@ -15,30 +15,30 @@ const (
 	DefaultSessionTTL = 30 * 24 * time.Hour
 )
 
-// Config descrive la configurazione del server PassOne.
+// Config describes the PassOne server configuration.
 type Config struct {
-	// Addr è l'indirizzo su cui il server ascolta (es. "127.0.0.1:8321").
+	// Addr is the address the server listens on (e.g. "127.0.0.1:8321").
 	Addr string `yaml:"addr"`
-	// DBPath è il percorso del file SQLite.
+	// DBPath is the path of the SQLite file.
 	DBPath string `yaml:"db_path"`
-	// AllowRegistration abilita la registrazione diretta dall'app.
+	// AllowRegistration enables direct registration from the app.
 	AllowRegistration bool `yaml:"allow_registration"`
-	// EnableUI abilita la web UI admin (embedded).
+	// EnableUI enables the admin web UI (embedded).
 	EnableUI bool `yaml:"enable_ui"`
-	// AdminToken è il segreto usato per le chiamate admin (CLI/web UI).
-	// Se vuoto, ne viene generato uno casuale e stampato al primo avvio.
+	// AdminToken is the secret used for admin calls (CLI/web UI).
+	// If empty, a random one is generated and printed on first startup.
 	AdminToken string `yaml:"admin_token"`
-	// TLSCert/TLSKey abilitano TLS diretto se entrambi presenti.
+	// TLSCert/TLSKey enable direct TLS if both are set.
 	TLSCert string `yaml:"tls_cert"`
 	TLSKey  string `yaml:"tls_key"`
-	// SessionTTL è la durata di una sessione.
+	// SessionTTL is the duration of a session.
 	SessionTTL time.Duration `yaml:"session_ttl"`
-	// MaxKDFMemoryMB/KDFIterationsLimit sono limiti di sanità sui parametri KDF.
+	// MaxKDFMemoryMB/KDFIterationsLimit are sanity limits on the KDF parameters.
 	MaxKDFMemoryMB    int `yaml:"max_kdf_memory_mb"`
 	MaxKDFIterations  int `yaml:"max_kdf_iterations"`
 }
 
-// Default restituisce una configurazione con valori di default.
+// Default returns a configuration with default values.
 func Default() *Config {
 	return &Config{
 		Addr:               DefaultAddr,
@@ -51,7 +51,7 @@ func Default() *Config {
 	}
 }
 
-// Load legge la configurazione da file YAML, applicando i default per i campi mancanti.
+// Load reads the configuration from a YAML file, applying defaults for missing fields.
 func Load(path string) (*Config, error) {
 	cfg := Default()
 	data, err := os.ReadFile(path)
@@ -76,11 +76,11 @@ func Load(path string) (*Config, error) {
 	if cfg.MaxKDFIterations <= 0 {
 		cfg.MaxKDFIterations = 10000000
 	}
-	// AdminToken: se vuoto resta vuoto; il server genererà un default random.
+	// AdminToken: if empty it stays empty; the server will generate a random default.
 	return cfg, nil
 }
 
-// Write salva la configurazione in formato YAML.
+// Write saves the configuration in YAML format.
 func Write(path string, cfg *Config) error {
 	if dir := filepath.Dir(path); dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -94,7 +94,7 @@ func Write(path string, cfg *Config) error {
 	return os.WriteFile(path, data, 0o600)
 }
 
-// EnvOverride applica le variabili d'ambiente come override (prefisso PASSONE_).
+// EnvOverride applies environment variables as overrides (PASSONE_ prefix).
 func (c *Config) EnvOverride() {
 	if v := os.Getenv("PASSONE_ADDR"); v != "" {
 		c.Addr = v

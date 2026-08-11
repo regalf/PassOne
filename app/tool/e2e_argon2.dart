@@ -1,6 +1,6 @@
-// Regressione per il bug "password mai valida": verifica setup+login+decrypt
-// del vault con il VERO argon2id nativo (non testabile via flutter test).
-// Uso: server attivo su <baseUrl>, poi `dart run tool/e2e_argon2.dart <baseUrl>`.
+// Regression for the "password never valid" bug: verifies setup+login+decrypt
+// of the vault with the REAL native argon2id (not testable via flutter test).
+// Usage: server running on <baseUrl>, then `dart run tool/e2e_argon2.dart <baseUrl>`.
 // ignore_for_file: avoid_print
 import 'dart:io';
 import 'dart:math';
@@ -25,7 +25,7 @@ Future<void> main(List<String> args) async {
   final username = 'argon2test_${rng.nextInt(1 << 32)}';
   final password = 'PasswordCorretta-42!';
 
-  // ==== Setup (equivalente a SessionController.register) ====
+  // ==== Setup (equivalent to SessionController.register) ====
   final salt = VaultCrypto.randomBytes(16);
   final params = KdfParams.argon2id();
   final kek = await kdf.derive(password, salt, params);
@@ -48,7 +48,7 @@ Future<void> main(List<String> args) async {
   print('SETUP OK: user=${session.user.username} rev=${session.user.vaultRevision}');
   await client.logout(session.token);
 
-  // ==== Login (equivalente a SessionController.login) ====
+  // ==== Login (equivalent to SessionController.login) ====
   final pre = await client.prelogin(username);
   print('Prelogin: status=${pre.status} kdf=${pre.kdf} saltlen=${pre.salt.length}');
   final loginKek = await kdf.derive(password, pre.salt, KdfParams.fromJson(pre.kdf));
@@ -65,7 +65,7 @@ Future<void> main(List<String> args) async {
   );
   print('LOGIN OK: user=${loginSession.user.username}');
 
-  // ==== Unwrap + decrypt del vault (il vero test) ====
+  // ==== Unwrap + decrypt the vault (the real test) ====
   final remote = await client.vaultGet(loginSession.token);
   final unwrapped = await VaultCrypto.unwrapKey(loginKek, remote.wrappedKey);
   final payload = VaultCrypto.decodeJson(

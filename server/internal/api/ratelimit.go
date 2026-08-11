@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// RateLimiter è un limite finestra fissa per-IP.
+// RateLimiter is a fixed-window per-IP limiter.
 type RateLimiter struct {
 	mu      sync.Mutex
 	limit   int
@@ -18,7 +18,7 @@ type bucket struct {
 	windowStart time.Time
 }
 
-// NewRateLimiter crea un limiter con `limit` richieste per finestra `window` per IP.
+// NewRateLimiter creates a limiter with `limit` requests per `window` per IP.
 func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 	return &RateLimiter{
 		limit:   limit,
@@ -27,7 +27,7 @@ func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 	}
 }
 
-// Allow restituisce true se l'IP può effettuare un'altra richiesta.
+// Allow returns true if the IP can make another request.
 func (r *RateLimiter) Allow(ip string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -10,7 +10,7 @@ import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
 import 'import_screen.dart';
 
-/// Esporta il vault in formato PassOne (JSON) o CSV.
+/// Exports the vault in PassOne (JSON) or CSV format.
 Future<void> exportVault(BuildContext context, VaultData vault) async {
   final l10n = context.l10n;
   final format = await showDialog<String>(
@@ -52,7 +52,7 @@ Future<void> exportVault(BuildContext context, VaultData vault) async {
   }
 }
 
-/// Converte il vault in CSV (name,url,username,password,notes).
+/// Converts the vault to CSV (name,url,username,password,notes).
 String vaultToCsv(VaultData vault) {
   final sb = StringBuffer();
   sb.writeln('name,url,username,password,notes');

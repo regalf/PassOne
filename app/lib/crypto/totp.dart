@@ -4,7 +4,7 @@ import 'package:cryptography/cryptography.dart';
 
 const _alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
-/// Decodifica una stringa Base32 (RFC 4648, senza padding) in byte.
+/// Decodes a Base32 string (RFC 4648, without padding) into bytes.
 Uint8List base32Decode(String input) {
   final s = input
       .toUpperCase()
@@ -27,7 +27,7 @@ Uint8List base32Decode(String input) {
   return out.toBytes();
 }
 
-/// Codifica byte in Base32 senza padding.
+/// Encodes bytes into Base32 without padding.
 String base32Encode(Uint8List bytes) {
   final buf = StringBuffer();
   var buffer = 0;
@@ -46,7 +46,7 @@ String base32Encode(Uint8List bytes) {
   return buf.toString();
 }
 
-/// Genera il codice TOTP a 6 cifre (RFC 6238, HMAC-SHA1, periodo 30s).
+/// Generates the 6-digit TOTP code (RFC 6238, HMAC-SHA1, 30s period).
 Future<String> generateTotp(String secretBase32, {DateTime? time}) async {
   final secret = base32Decode(secretBase32);
   final counter = ((time ?? DateTime.now()).millisecondsSinceEpoch ~/ 1000) ~/ 30;
@@ -62,10 +62,10 @@ Future<String> generateTotp(String secretBase32, {DateTime? time}) async {
   return (bin % 1000000).toString().padLeft(6, '0');
 }
 
-/// Secondi mancanti al cambio del codice corrente.
+/// Seconds remaining until the current code changes.
 int totpSecondsLeft(DateTime time) => 30 - (time.millisecondsSinceEpoch ~/ 1000) % 30;
 
-/// Dati estratti da un URI otpauth:// (o da una chiave Base32 nuda).
+/// Data extracted from an otpauth:// URI (or from a bare Base32 key).
 class TotpUriData {
   final String secret;
   final String? issuer;
@@ -81,8 +81,8 @@ class TotpUriData {
   }
 }
 
-/// Interpreta un QR: accetta l'URI `otpauth://totp/...` (issuer/account/secret)
-/// oppure una chiave Base32 nuda. Restituisce null se non valido.
+/// Parses a QR: accepts an `otpauth://totp/...` URI (issuer/account/secret)
+/// or a bare Base32 key. Returns null if not valid.
 TotpUriData? parseTotp(String input) {
   final text = input.trim();
   if (text.isEmpty) return null;
@@ -123,7 +123,7 @@ TotpUriData? parseTotp(String input) {
   return TotpUriData(secret: secret);
 }
 
-/// Valida una chiave Base32 restituendola normalizzata, o null se invalida.
+/// Validates a Base32 key returning it normalized, or null if invalid.
 String? normalizeTotpSecret(String input) {
   final t = parseTotp(input);
   if (t == null) return null;
@@ -135,9 +135,9 @@ String? normalizeTotpSecret(String input) {
   return t.secret;
 }
 
-/// Verifica un codice TOTP a 6 cifre per [secretBase32]. Tolleranza di ±1
-/// finestra: se l'utente digita mentre il codice cambia, il codice della
-/// finestra precedente/successiva viene comunque accettato.
+/// Verifies a 6-digit TOTP code for [secretBase32]. ±1 window tolerance:
+/// if the user types while the code changes, the code from the previous/next
+/// window is still accepted.
 Future<bool> verifyTotp(String secretBase32, String code,
     {DateTime? time}) async {
   final normalized = code.trim();

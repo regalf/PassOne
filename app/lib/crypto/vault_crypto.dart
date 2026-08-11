@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
-/// Operazioni AEAD e di envelope sul vault.
+/// AEAD and envelope operations on the vault.
 class VaultCrypto {
   static const int _nonceLength = 12;
   static const int _tagLength = 16;
@@ -22,8 +22,8 @@ class VaultCrypto {
 
   static Uint8List generateVaultKey() => randomBytes(32);
 
-  /// Cripta [data] con AES-256-GCM restituendo (blob, nonce).
-  /// Il blob contiene solo ciphertext+tag: il nonce è restituito a parte.
+  /// Encrypts [data] with AES-256-GCM returning (blob, nonce).
+  /// The blob contains only ciphertext+tag: the nonce is returned separately.
   static Future<(Uint8List, Uint8List)> encrypt(
       Uint8List key, Uint8List data) async {
     final nonce = randomBytes(_nonceLength);
@@ -35,7 +35,7 @@ class VaultCrypto {
     return (Uint8List.fromList(box.concatenation(nonce: false)), nonce);
   }
 
-  /// Decripta [blob] (ciphertext+tag) con [nonce].
+  /// Decrypts [blob] (ciphertext+tag) with [nonce].
   static Future<Uint8List> decrypt(
       Uint8List key, Uint8List blob, Uint8List nonce) async {
     final box = SecretBox(
@@ -47,8 +47,8 @@ class VaultCrypto {
     return Uint8List.fromList(clear);
   }
 
-  /// Avvolge una chiave (es. vault_key) con una chiave di wrapping (KEK o recovery).
-  /// Formato: [nonce(12) || ciphertext+tag].
+  /// Wraps a key (e.g. vault_key) with a wrapping key (KEK or recovery).
+  /// Format: [nonce(12) || ciphertext+tag].
   static Future<Uint8List> wrapKey(Uint8List wrappingKey, Uint8List key) async {
     final (blob, nonce) = await encrypt(wrappingKey, key);
     final out = Uint8List(_nonceLength + blob.length);
@@ -57,7 +57,7 @@ class VaultCrypto {
     return out;
   }
 
-  /// Srotola una chiave avvolta con [wrapKey].
+  /// Unwraps a key wrapped with [wrapKey].
   static Future<Uint8List> unwrapKey(
       Uint8List wrappingKey, Uint8List wrapped) async {
     if (wrapped.length < _nonceLength + _tagLength) {
@@ -68,7 +68,7 @@ class VaultCrypto {
     return decrypt(wrappingKey, blob, nonce);
   }
 
-  /// JSON → bytes UTF-8.
+  /// JSON → UTF-8 bytes.
   static Uint8List encodeJson(Map<String, dynamic> json) =>
       Uint8List.fromList(utf8.encode(jsonEncode(json)));
 

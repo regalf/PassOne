@@ -82,8 +82,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         await _showRecoveryKey(recoveryKey);
       }
       widget.onDone?.call();
-      // Se la registrazione è avvenuta da una route spinta (LoginScreen ->
-      // Crea account), torna alla radice: la home mostra già il vault.
+      // If the registration happened from a pushed route (LoginScreen ->
+      // Create account), it returns to the root: the home screen already shows the vault.
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }

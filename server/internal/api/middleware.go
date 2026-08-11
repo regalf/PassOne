@@ -30,7 +30,7 @@ func (s *Server) userFrom(ctx context.Context) *store.User {
 	return u
 }
 
-// logged logga ogni richiesta.
+// logged logs every request.
 func (s *Server) logged(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -46,7 +46,7 @@ func (s *Server) logged(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// authed richiede una sessione valida.
+// authed requires a valid session.
 func (s *Server) authed(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token := bearerToken(r)
@@ -67,7 +67,7 @@ func (s *Server) authed(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// adminOnly richiede il token admin di configurazione.
+// adminOnly requires the configured admin token.
 func (s *Server) adminOnly(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if s.admin == "" || !crypto.SecureEqualString(bearerToken(r), s.admin) {
@@ -78,7 +78,7 @@ func (s *Server) adminOnly(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// rateLimited applica il rate limiting per-IP sull'endpoint name.
+// rateLimited applies per-IP rate limiting on the name endpoint.
 func (s *Server) rateLimited(name string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !s.rl.Allow(clientIP(r)) {

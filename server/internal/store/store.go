@@ -54,7 +54,7 @@ const (
 	StatusDisabled = "disabled"
 )
 
-// KDFParams sono i parametri di derivazione. m è in KiB (convenzione Argon2).
+// KDFParams are the KDF parameters. m is in KiB (Argon2 convention).
 type KDFParams struct {
 	MemoryKiB   uint32 `json:"m"`
 	Iterations  uint32 `json:"t"`
@@ -95,12 +95,12 @@ type Session struct {
 	ExpiresAt  time.Time
 }
 
-// Store è il database SQLite.
+// Store is the SQLite database.
 type Store struct {
 	db *sql.DB
 }
 
-// Open apre (creandolo se serve) il database SQLite in percorso dbPath.
+// Open opens (creating it if needed) the SQLite database at path dbPath.
 func Open(dbPath string) (*Store, error) {
 	if dir := filepath.Dir(dbPath); dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -112,7 +112,7 @@ func Open(dbPath string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
-	// WAL multi-writer non serve: singolo processo, ma utile per il CLI concorrente.
+	// WAL multi-writer is not needed: single process, but useful for the concurrent CLI.
 	db.SetMaxOpenConns(1)
 	if _, err := db.Exec(schema); err != nil {
 		db.Close()
@@ -121,13 +121,13 @@ func Open(dbPath string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
-// Close chiude il database.
+// Close closes the database.
 func (s *Store) Close() error { return s.db.Close() }
 
-// Ping verifica che il database sia raggiungibile.
+// Ping verifies that the database is reachable.
 func (s *Store) Ping() error { return s.db.Ping() }
 
-// CreatePendingUser crea un utente in stato pending e restituisce l'invite token.
+// CreatePendingUser creates a user in pending status and returns the invite token.
 func (s *Store) CreatePendingUser(username string) (string, error) {
 	token, err := crypto.RandomHex(32)
 	if err != nil {
@@ -143,7 +143,7 @@ func (s *Store) CreatePendingUser(username string) (string, error) {
 	return token, nil
 }
 
-// InsertUser inserisce un utente già completo di materiali crittografici (registrazione diretta).
+// InsertUser inserts a user already complete with auth materials (direct registration).
 func (s *Store) InsertUser(u *User) (int64, error) {
 	kp, err := json.Marshal(u.KDFParams)
 	if err != nil {
@@ -164,7 +164,7 @@ func (s *Store) InsertUser(u *User) (int64, error) {
 	return res.LastInsertId()
 }
 
-// ResetInviteToken genera un nuovo invite token per l'utente (se pending).
+// ResetInviteToken generates a new invite token for the user (if pending).
 func (s *Store) ResetInviteToken(username string) (string, error) {
 	token, err := crypto.RandomHex(32)
 	if err != nil {
@@ -184,7 +184,7 @@ func (s *Store) ResetInviteToken(username string) (string, error) {
 	return token, nil
 }
 
-// GetUserByUsername recupera un utente per username.
+// GetUserByUsername retrieves a user by username.
 func (s *Store) GetUserByUsername(username string) (*User, error) {
 	return s.scanUser(s.db.QueryRow(
 		`SELECT id, username, status, invite_token_hash, salt, kdf_algorithm, kdf_params,
@@ -193,7 +193,7 @@ func (s *Store) GetUserByUsername(username string) (*User, error) {
 		 FROM users WHERE username = ?`, strings.TrimSpace(username)))
 }
 
-// GetUserByID recupera un utente per ID.
+// GetUserByID retrieves a user by ID.
 func (s *Store) GetUserByID(id int64) (*User, error) {
 	return s.scanUser(s.db.QueryRow(
 		`SELECT id, username, status, invite_token_hash, salt, kdf_algorithm, kdf_params,
@@ -202,7 +202,7 @@ func (s *Store) GetUserByID(id int64) (*User, error) {
 		 FROM users WHERE id = ?`, id))
 }
 
-// ListUsers elenca tutti gli utenti (username, status, revision, date).
+// ListUsers lists all users (username, status, revision, dates).
 type UserSummary struct {
 	ID       int64
 	Username string
@@ -233,7 +233,7 @@ func (s *Store) ListUsers() ([]UserSummary, error) {
 	return out, rows.Err()
 }
 
-// DeleteUser elimina definitivamente un utente e le sue sessioni.
+// DeleteUser permanently deletes a user and their sessions.
 func (s *Store) DeleteUser(id int64) error {
 	res, err := s.db.Exec(`DELETE FROM users WHERE id = ?`, id)
 	if err != nil {
@@ -246,7 +246,7 @@ func (s *Store) DeleteUser(id int64) error {
 	return nil
 }
 
-// ActivateUser attiva un utente pending con i materiali crittografici.
+// ActivateUser activates a pending user with the auth materials.
 func (s *Store) ActivateUser(u *User, kdf KDFParams) error {
 	kp, err := json.Marshal(kdf)
 	if err != nil {
@@ -271,13 +271,13 @@ func (s *Store) ActivateUser(u *User, kdf KDFParams) error {
 	return nil
 }
 
-// UpdateLastLogin aggiorna last_login_at.
+// UpdateLastLogin updates last_login_at.
 func (s *Store) UpdateLastLogin(userID int64) error {
 	_, err := s.db.Exec(`UPDATE users SET last_login_at = ? WHERE id = ?`, now(), userID)
 	return err
 }
 
-// SetUserStatus imposta lo stato di un utente (active/disabled/pending).
+// SetUserStatus sets a user's status (active/disabled/pending).
 func (s *Store) SetUserStatus(id int64, status string) error {
 	res, err := s.db.Exec(`UPDATE users SET status = ?, updated_at = ? WHERE id = ?`, status, now(), id)
 	if err != nil {
@@ -290,8 +290,8 @@ func (s *Store) SetUserStatus(id int64, status string) error {
 	return nil
 }
 
-// UpdateVault applica un nuovo blob con optimistic locking (CAS sulla revision).
-// Ritorna la nuova revision oppure ErrConflict.
+// UpdateVault applies a new blob with optimistic locking (CAS on the revision).
+// Returns the new revision or ErrConflict.
 func (s *Store) UpdateVault(userID, baseRevision int64, blob, nonce []byte, keyWrapped, keyWrappedRecov []byte) (int64, error) {
 	res, err := s.db.Exec(
 		`UPDATE users SET vault_blob = ?, vault_nonce = ?, vault_key_wrapped = COALESCE(?, vault_key_wrapped),
@@ -310,9 +310,9 @@ func (s *Store) UpdateVault(userID, baseRevision int64, blob, nonce []byte, keyW
 	return baseRevision + 1, nil
 }
 
-// UpdateAuthMaterial aggiorna in un'unica transazione l'hash di autenticazione,
-// i parametri KDF, le chiavi avvolte e la recovery hash, revocando tutte le sessioni.
-// Se burnRecovery è true, la recovery hash viene impostata al nuovo valore (o azzerata se nil).
+// UpdateAuthMaterial updates in a single transaction the auth hash,
+// the KDF parameters, the wrapped keys and the recovery hash, revoking all sessions.
+// If burnRecovery is true, the recovery hash is set to the new value (or cleared if nil).
 func (s *Store) UpdateAuthMaterial(u *User, kdf KDFParams, burnRecovery bool) error {
 	kp, err := json.Marshal(kdf)
 	if err != nil {
@@ -346,7 +346,7 @@ func (s *Store) UpdateAuthMaterial(u *User, kdf KDFParams, burnRecovery bool) er
 	return tx.Commit()
 }
 
-// CreateSession crea una nuova sessione e restituisce il token in chiaro.
+// CreateSession creates a new session and returns the plaintext token.
 func (s *Store) CreateSession(userID int64, deviceName string, ttl time.Duration) (string, error) {
 	token, err := crypto.RandomBytes(32)
 	if err != nil {
@@ -363,7 +363,7 @@ func (s *Store) CreateSession(userID int64, deviceName string, ttl time.Duration
 	return tokenStr, nil
 }
 
-// GetUserBySessionToken recupera l'utente associato a un token di sessione valido.
+// GetUserBySessionToken retrieves the user associated with a valid session token.
 func (s *Store) GetUserBySessionToken(token string) (*User, error) {
 	var u User
 	var expires string
@@ -396,13 +396,13 @@ func (s *Store) GetUserBySessionToken(token string) (*User, error) {
 	return &u, nil
 }
 
-// DeleteSession revoca una sessione.
+// DeleteSession revokes a session.
 func (s *Store) DeleteSession(token string) error {
 	_, err := s.db.Exec(`DELETE FROM sessions WHERE token_hash = ?`, hashToken([]byte(token)))
 	return err
 }
 
-// DeleteAllSessions revoca tutte le sessioni di un utente.
+// DeleteAllSessions revokes all sessions of a user.
 func (s *Store) DeleteAllSessions(userID int64) error {
 	_, err := s.db.Exec(`DELETE FROM sessions WHERE user_id = ?`, userID)
 	return err

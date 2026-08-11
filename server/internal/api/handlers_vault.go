@@ -7,7 +7,7 @@ import (
 	"passone/internal/store"
 )
 
-// vaultPayload è la rappresentazione wire del vault (blob criptato + materiali).
+// vaultPayload is the wire representation of the vault (encrypted blob + materials).
 type vaultPayload struct {
 	VaultBlobB64            string       `json:"vault_blob_b64"`
 	VaultNonceB64           string       `json:"vault_nonce_b64"`

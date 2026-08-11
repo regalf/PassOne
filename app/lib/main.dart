@@ -22,8 +22,8 @@ class PassOneApp extends ConsumerWidget {
     final languageCode = ref.watch(sessionControllerProvider).settings.languageCode;
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
-        // Su Android 12+ segue l'accento del sistema (Material You); altrove
-        // usa il verde PassOne come fallback.
+        // On Android 12+ follows the system accent (Material You); elsewhere
+        // uses the PassOne green as fallback.
         final lightScheme = lightDynamic ??
             ColorScheme.fromSeed(seedColor: const Color(0xFF2E7D32));
         final darkScheme = darkDynamic ??
@@ -60,16 +60,16 @@ class PassOneApp extends ConsumerWidget {
   }
 }
 
-/// Sceglie la schermata in base allo stato di sessione.
+/// Picks the screen based on the session state.
 class _Root extends ConsumerWidget {
   const _Root();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionControllerProvider);
-    // Quando la sessione esce da "sbloccato" (logout, logout-all, blocco) le
-    // route spinte in cima al Navigator (es. Impostazioni) vanno rimosse per
-    // tornare alla schermata base (login o unlock).
+    // When the session leaves "unlocked" (logout, logout-all, lock) the
+    // routes pushed on top of the Navigator (e.g. Settings) must be removed to
+    // go back to the base screen (login or unlock).
     ref.listen<SessionState>(sessionControllerProvider, (prev, next) {
       if (prev != null &&
           prev.status != next.status &&

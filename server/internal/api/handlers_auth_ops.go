@@ -9,7 +9,7 @@ import (
 	"passone/internal/store"
 )
 
-// authMaterialInput raccoglie i materiali crittografici inviati dal client.
+// authMaterialInput collects the auth materials sent by the client.
 type authMaterialInput struct {
 	AuthHashB64             string    `json:"auth_hash_b64"`
 	SaltB64                 string    `json:"salt_b64"`
@@ -19,8 +19,8 @@ type authMaterialInput struct {
 	RecoveryHashB64         string    `json:"recovery_hash_b64"`
 }
 
-// parseAuthMaterial valida e decodifica i materiali; recoveryHash/vaultKeyWrappedRecov
-// sono nil se l'utente non usa la recovery key (e in quel caso vengono azzerati).
+// parseAuthMaterial validates and decodes the materials; recoveryHash/vaultKeyWrappedRecov
+// are nil if the user does not use the recovery key (and in that case they are cleared).
 func (s *Server) parseAuthMaterial(req authMaterialInput) (*store.User, string) {
 	if !s.validateKDF(req.KDF) {
 		return nil, "bad_kdf"
@@ -97,15 +97,15 @@ type recoverRequest struct {
 	DeviceName      string            `json:"device_name"`
 }
 
-// recoverPayloadRequest è la richiesta per scaricare il vault criptato con la recovery key.
+// recoverPayloadRequest is the request to download the vault encrypted with the recovery key.
 type recoverPayloadRequest struct {
 	Username        string `json:"username"`
 	RecoveryHashB64 string `json:"recovery_hash_b64"`
 }
 
-// handleRecoverPayload verifica la recovery key e restituisce il vault criptato:
-// il client usa questi dati per srotolare la vault_key e poi chiamare /auth/recover.
-// Non modifica nulla: la key non viene bruciata qui.
+// handleRecoverPayload verifies the recovery key and returns the encrypted vault:
+// the client uses this data to unwrap the vault_key and then calls /auth/recover.
+// It does not modify anything: the key is not burned here.
 func (s *Server) handleRecoverPayload(w http.ResponseWriter, r *http.Request) {
 	var req recoverPayloadRequest
 	if err := decodeJSON(w, r, &req); err != nil {
@@ -160,13 +160,13 @@ func (s *Server) handleRecover(w http.ResponseWriter, r *http.Request) {
 	}
 	newMat.ID = u.ID
 
-	// Transazione atomica: sostituisce l'auth material, brucia la recovery key precedente
-	// e revoca tutte le sessioni.
+	// Atomic transaction: replaces the auth material, burns the previous recovery key
+	// and revokes all sessions.
 	if err := s.store.UpdateAuthMaterial(newMat, newMat.KDFParams, true); err != nil {
 		writeErr(w, http.StatusInternalServerError, "errore interno", "internal")
 		return
 	}
-	// Creo una sessione fresca per l'utente che ha appena recuperato l'accesso.
+	// Creates a fresh session for the user who just recovered access.
 	fresh, err := s.store.GetUserByID(u.ID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "errore interno", "internal")

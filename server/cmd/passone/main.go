@@ -203,8 +203,8 @@ func disableUser(st *store.Store, username string) error {
 	if err != nil {
 		return err
 	}
-	// Aggiornamento diretto dello stato tramite UpdateAuthMaterial non basta:
-	// usiamo un UPDATE semplice.
+	// Direct state update via UpdateAuthMaterial is not enough:
+	// we use a plain UPDATE.
 	return st.SetUserStatus(u.ID, store.StatusDisabled)
 }
 
@@ -234,7 +234,7 @@ func cmdConfig(args []string) error {
 	out := fs.String("out", "config.yaml", "file di output")
 	_ = fs.Parse(args[1:])
 	cfg := config.Default()
-	// Genera un admin token casuale così non serve stamparlo.
+	// Generates a random admin token so it doesn't need to be printed.
 	token, err := crypto.RandomHex(24)
 	if err != nil {
 		return err

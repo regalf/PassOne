@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../l10n/l10n.dart';
 import '../../util/password_generator.dart';
 
-/// Dialog per generare una password con opzioni.
+/// Dialog to generate a password with options.
 class GeneratorDialog extends StatefulWidget {
   final void Function(String password) onGenerated;
   const GeneratorDialog({super.key, required this.onGenerated});

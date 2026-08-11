@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
-/// Eccezione dell'API con codice semantico.
+/// API exception with a semantic code.
 class ApiException implements Exception {
   final int status;
   final String code;
@@ -17,7 +17,7 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
-/// Dati pubblici di un utente restituiti dal server.
+/// Public data of a user returned by the server.
 class UserInfo {
   final int id;
   final String username;
@@ -59,7 +59,7 @@ class Session {
       );
 }
 
-/// Risposta di POST /auth/prelogin: salt + parametri KDF per derivare la chiave.
+/// Response of POST /auth/prelogin: salt + KDF parameters to derive the key.
 class PreloginResult {
   final String status;
   final Uint8List salt;
@@ -78,7 +78,7 @@ class PreloginResult {
       );
 }
 
-/// Risposta di GET /vault.
+/// Response of GET /vault.
 class VaultRemote {
   final Uint8List blob;
   final Uint8List nonce;
@@ -120,7 +120,7 @@ class VaultRemote {
   }
 }
 
-/// Client REST verso il server PassOne.
+/// REST client for the PassOne server.
 class PassOneClient {
   final String baseUrl;
   final http.Client _http;
@@ -282,7 +282,7 @@ class PassOneClient {
     return Session.fromJson(data as Map<String, dynamic>);
   }
 
-  /// Scarica il vault criptato dopo aver dimostrato il possesso della recovery key.
+  /// Downloads the encrypted vault after proving possession of the recovery key.
   Future<VaultRemote> recoverPayload({
     required String username,
     required String recoveryHashB64,

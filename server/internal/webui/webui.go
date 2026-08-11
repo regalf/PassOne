@@ -10,7 +10,7 @@ import (
 //go:embed static/*
 var staticFS embed.FS
 
-// WithAdminUI monta la web UI admin su /admin/ e fa da proxy verso il bearer token.
+// WithAdminUI mounts the admin web UI on /admin/ and proxies to the bearer token.
 func WithAdminUI(next http.Handler, adminToken string) http.Handler {
 	sub, err := fs.Sub(staticFS, "static")
 	if err != nil {
@@ -19,7 +19,7 @@ func WithAdminUI(next http.Handler, adminToken string) http.Handler {
 	fileServer := http.StripPrefix("/admin/", http.FileServer(http.FS(sub)))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Redirect automatico dalla root alla web UI admin.
+		// Automatic redirect from the root to the admin web UI.
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 			http.Redirect(w, r, "/admin/", http.StatusFound)
 			return

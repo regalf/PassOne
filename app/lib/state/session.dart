@@ -12,7 +12,7 @@ import 'settings.dart';
 
 enum AuthStatus { unauthenticated, locked, unlocked }
 
-/// Eccezione quando l'account è pending (serve il setup).
+/// Exception when the account is pending (setup is required).
 class NeedsSetupException implements Exception {
   const NeedsSetupException();
 
@@ -20,7 +20,7 @@ class NeedsSetupException implements Exception {
   String toString() => 'The account is awaiting setup.';
 }
 
-/// Eccezione per password/recovery key errata.
+/// Exception for wrong password/recovery key.
 class WrongPasswordException implements Exception {
   const WrongPasswordException();
 
@@ -113,7 +113,7 @@ class SessionController extends StateNotifier<SessionState> {
     );
   }
 
-  /// Imposta/aggiorna l'URL del server e il client HTTP.
+  /// Sets/updates the server URL and the HTTP client.
   Future<void> setServerUrl(String url) async {
     final base = url.trim().replaceAll(RegExp(r'/+$'), '');
     final settings = state.settings.copyWithServerUrl(base);
@@ -137,14 +137,14 @@ class SessionController extends StateNotifier<SessionState> {
     state = state.copyWith(settings: settings);
   }
 
-  /// Imposta la lingua forzata ('it'/'en') o torna alla lingua di sistema (null).
+  /// Sets the forced language ('it'/'en') or returns to the system language (null).
   Future<void> setLanguageCode(String? code) async {
     final settings = state.settings.copyWithLanguageCode(code);
     await _repo.save(settings);
     state = state.copyWith(settings: settings);
   }
 
-  /// Prelogin: salt + parametri KDF per derivare la chiave prima di autenticarsi.
+  /// Prelogin: salt + KDF parameters to derive the key before authenticating.
   Future<({String status, Uint8List salt, KdfParams kdf})> prelogin(
       String username) async {
     final res = await client.prelogin(username);
@@ -155,7 +155,7 @@ class SessionController extends StateNotifier<SessionState> {
   Future<Uint8List> _deriveKek(String password, Uint8List salt, KdfParams kdf) =>
       _kdf.derive(password, salt, kdf);
 
-  /// Login: deriva la chiave, si autentica, scarica e decripta il vault.
+  /// Login: derives the key, authenticates, downloads and decrypts the vault.
   Future<void> login({
     required String username,
     required String password,
@@ -182,8 +182,8 @@ class SessionController extends StateNotifier<SessionState> {
     await setLastUsername(username);
   }
 
-  /// Registrazione diretta o con invite token (primo accesso).
-  /// Restituisce la recovery key (da mostrare UNA volta) oppure null.
+  /// Direct registration or with an invite token (first access).
+  /// Returns the recovery key (to show ONCE) or null.
   Future<String?> register({
     required String username,
     required String password,
@@ -280,7 +280,7 @@ class SessionController extends StateNotifier<SessionState> {
     _scheduleLock();
   }
 
-  /// Unlock offline: deriva la chiave localmente e decripta la cache.
+  /// Offline unlock: derives the key locally and decrypts the cache.
   Future<void> unlock(String password) async {
     final cache = state.cache;
     if (cache == null) {
@@ -313,9 +313,9 @@ class SessionController extends StateNotifier<SessionState> {
     _scheduleLock();
   }
 
-  /// Abilita l'accesso biometrico: genera una bioKey, la salva nel Keystore
-  /// (gated da biometria) e avvolge la vaultKey corrente. Richiede lo stato
-  /// sbloccato: la vaultKey è in memoria.
+  /// Enables biometric access: generates a bioKey, stores it in the Keystore
+  /// (gated by biometrics) and wraps the current vaultKey. Requires the
+  /// unlocked state: the vaultKey is in memory.
   Future<void> enableBiometrics() async {
     final cache = state.cache;
     final vaultKey = state.vaultKey;
@@ -337,7 +337,7 @@ class SessionController extends StateNotifier<SessionState> {
     await _repo.save(state.settings);
   }
 
-  /// Disabilita l'accesso biometrico e rimuove la bioKey dal Keystore.
+  /// Disables biometric access and removes the bioKey from the Keystore.
   Future<void> disableBiometrics() async {
     await _biometrics.deleteBioKey();
     final cache = state.cache;
@@ -350,8 +350,8 @@ class SessionController extends StateNotifier<SessionState> {
     await _repo.save(state.settings);
   }
 
-  /// Sblocca con la biometria: legge la bioKey dal Keystore (prompt) e srotola
-  /// la vaultKey salvata. Non richiede la master password.
+  /// Unlocks with biometrics: reads the bioKey from the Keystore (prompt) and unwraps
+  /// the saved vaultKey. Does not require the master password.
   Future<BiometricReadResult> unlockWithBiometrics() async {
     final cache = state.cache;
     final bioWrapped = cache?.bioWrappedKey;
@@ -403,12 +403,12 @@ class SessionController extends StateNotifier<SessionState> {
         bioWrappedKey: bioWrapped,
       );
 
-  /// Blocca il vault: azzera le chiavi dalla memoria.
+  /// Locks the vault: wipes the keys from memory.
   void lock() {
     _lockTimer?.cancel();
     _lockTimer = null;
-    // Stato costruito esplicitamente: copyWith non può azzerare vaultKey/vault
-    // (usa `??`), quindi qui le chiavi vengono davvero rimosse dalla memoria.
+    // State built explicitly: copyWith cannot wipe vaultKey/vault
+    // (it uses `??`), so here the keys are really removed from memory.
     state = SessionState(
       status: AuthStatus.locked,
       user: state.user,
@@ -425,14 +425,14 @@ class SessionController extends StateNotifier<SessionState> {
     _lockTimer = Timer(Duration(minutes: minutes), lock);
   }
 
-  /// Riavvia il timer di lock (da chiamare su attività utente).
+  /// Restarts the lock timer (call it on user activity).
   void touch() {
     if (state.status == AuthStatus.unlocked) {
       _scheduleLock();
     }
   }
 
-  /// Aggiorna le voci in memoria e sincronizza col server (LWW).
+  /// Updates the entries in memory and syncs with the server (LWW).
   Future<void> saveVault(VaultData vault) async {
     final cache = state.cache;
     final vaultKey = state.vaultKey;
@@ -470,7 +470,7 @@ class SessionController extends StateNotifier<SessionState> {
     throw ApiException(0, 'sync_failed', 'Sincronizzazione non riuscita.');
   }
 
-  /// Scarica il vault dal server e fa merge (LWW) con quello locale.
+  /// Downloads the vault from the server and merges (LWW) it with the local one.
   Future<void> refreshFromServer() async {
     final cache = state.cache;
     final vaultKey = state.vaultKey;
@@ -543,8 +543,8 @@ class SessionController extends StateNotifier<SessionState> {
     state = SessionState(settings: settings);
   }
 
-  /// Cambio della master password. [generateRecovery] crea/ruota la recovery key,
-  /// [disableRecovery] la rimuove. Restituisce la nuova recovery key se generata.
+  /// Master password change. [generateRecovery] creates/rotates the recovery key,
+  /// [disableRecovery] removes it. Returns the new recovery key if generated.
   Future<String?> changePassword({
     required String oldPassword,
     required String newPassword,
@@ -617,8 +617,8 @@ class SessionController extends StateNotifier<SessionState> {
     return newRecoveryKey;
   }
 
-  /// Recovery: usa la recovery key per rientrare e reimpostare la password.
-  /// Restituisce la nuova recovery key se richiesta.
+  /// Recovery: uses the recovery key to get back in and reset the password.
+  /// Returns the new recovery key if requested.
   Future<String?> recover({
     required String username,
     required String recoveryKey,
@@ -718,7 +718,7 @@ class SessionController extends StateNotifier<SessionState> {
     );
   }
 
-  /// Merge LWW per entry: unione per id, vince la updatedAt più recente.
+  /// LWW merge per entry: union by id, the most recent updatedAt wins.
   VaultData _mergeVaults(VaultData local, VaultData remote) {
     final byId = <String, VaultEntry>{};
     for (final e in local.entries) {
@@ -745,7 +745,7 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   String _deviceName() {
-    // V1: nome generico; su Linux/Windows si potrebbe leggere il hostname.
+    // V1: generic name; on Linux/Windows the hostname could be read.
     return 'PassOne';
   }
 }

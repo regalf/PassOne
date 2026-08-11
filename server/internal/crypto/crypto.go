@@ -9,23 +9,23 @@ import (
 	"math/big"
 )
 
-// SHA256 calcola l'hash SHA-256 di b.
+// SHA256 computes the SHA-256 hash of b.
 func SHA256(b []byte) []byte {
 	h := sha256.Sum256(b)
 	return h[:]
 }
 
-// SecureEqual confronta due byte slice in tempo costante.
+// SecureEqual compares two byte slices in constant time.
 func SecureEqual(a, b []byte) bool {
 	return subtle.ConstantTimeCompare(a, b) == 1
 }
 
-// SecureEqualString confronta due stringhe in tempo costante.
+// SecureEqualString compares two strings in constant time.
 func SecureEqualString(a, b string) bool {
 	return SecureEqual([]byte(a), []byte(b))
 }
 
-// RandomBytes genera n byte casuali da crypto/rand.
+// RandomBytes generates n random bytes from crypto/rand.
 func RandomBytes(n int) ([]byte, error) {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
@@ -34,7 +34,7 @@ func RandomBytes(n int) ([]byte, error) {
 	return b, nil
 }
 
-// RandomHex genera una stringa esadecimale casuale di n byte.
+// RandomHex generates a random hex string of n bytes.
 func RandomHex(n int) (string, error) {
 	b, err := RandomBytes(n)
 	if err != nil {
@@ -43,17 +43,17 @@ func RandomHex(n int) (string, error) {
 	return fmt.Sprintf("%x", b), nil
 }
 
-// EncodeBase64 codifica in base64 standard.
+// EncodeBase64 encodes using standard base64.
 func EncodeBase64(b []byte) string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-// DecodeBase64 decodifica base64 standard.
+// DecodeBase64 decodes standard base64.
 func DecodeBase64(s string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(s)
 }
 
-// RandomInt genera un intero casuale in [0, n).
+// RandomInt generates a random integer in [0, n).
 func RandomInt(n int) (int, error) {
 	v, err := rand.Int(rand.Reader, big.NewInt(int64(n)))
 	if err != nil {

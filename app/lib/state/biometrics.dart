@@ -5,21 +5,21 @@ import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
 
-/// Risultato di una lettura della bioKey dal Keystore.
+/// Result of a read of the bioKey from the Keystore.
 enum BiometricReadResult {
-  /// Chiave letta e biometria superata.
+  /// Key read and biometrics passed.
   success,
 
-  /// Prompt annullato o impronta non valida (utente può riprovare/annullare).
+  /// Prompt canceled or invalid fingerprint (user can retry/cancel).
   canceled,
 
-  /// Nessuna bioKey disponibile o chiave invalidata (es. impronte modificate).
+  /// No bioKey available or key invalidated (e.g. fingerprints changed).
   unavailable,
 }
 
-/// Accesso biometrico: disponibilità (local_auth) e bioKey nell'Android
-/// Keystore protetta da autenticazione a ogni lettura (flutter_secure_storage
-/// con [AndroidOptions.biometric]). Funziona solo su Android.
+/// Biometric access: availability (local_auth) and bioKey in the Android
+/// Keystore protected by authentication on every read (flutter_secure_storage
+/// with [AndroidOptions.biometric]). Only works on Android.
 class BiometricService {
   static const _key = 'passone_bio_key';
   static const _options = AndroidOptions.biometric(
@@ -37,7 +37,7 @@ class BiometricService {
       : _auth = auth ?? LocalAuthentication(),
         _storage = storage ?? const FlutterSecureStorage();
 
-  /// True solo su Android con biometria forte registrata (es. impronta).
+  /// True only on Android with strong registered biometrics (e.g. fingerprint).
   Future<bool> isAvailable() async {
     if (!Platform.isAndroid) return false;
     try {
@@ -48,16 +48,16 @@ class BiometricService {
     }
   }
 
-  /// Salva la [bioKey] nel Keystore; il prompt biometrico NON scatta qui,
-  /// ma a ogni lettura successiva.
+  /// Stores the [bioKey] in the Keystore; the biometric prompt does NOT fire here,
+  /// but on every subsequent read.
   Future<void> storeBioKey(Uint8List bioKey) async {
     if (!Platform.isAndroid) return;
     await _storage.write(
         key: _key, value: base64Encode(bioKey), aOptions: _options);
   }
 
-  /// Legge la bioKey: mostra il BiometricPrompt e restituisce la chiave solo se
-  /// l'autenticazione riesce.
+  /// Reads the bioKey: shows the BiometricPrompt and returns the key only if
+  /// authentication succeeds.
   Future<({BiometricReadResult result, Uint8List? bioKey})>
       readBioKey() async {
     if (!Platform.isAndroid) {

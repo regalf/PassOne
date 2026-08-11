@@ -68,8 +68,8 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
         await _showNewRecoveryKey(newKey);
       }
       ref.read(sessionControllerProvider.notifier).touch();
-      // Il recupero parte da una route spinta (LoginScreen): torna alla radice,
-      // dove la home mostra già il vault sbloccato.
+      // Recovery starts from a pushed route (LoginScreen): it returns to the root,
+      // where the home screen already shows the unlocked vault.
       if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }

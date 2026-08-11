@@ -4,11 +4,11 @@ import 'dart:typed_data';
 import 'package:argon2_ffi_base/argon2_ffi_base.dart';
 import 'package:cryptography/cryptography.dart' as cg;
 
-/// Algoritmi KDF supportati.
+/// Supported KDF algorithms.
 enum KdfAlgorithm { argon2id, pbkdf2Sha256 }
 
-/// Parametri KDF. Per argon2id: [m] è la memoria in KiB, [t] le iterazioni,
-/// [p] il parallelismo. Per pbkdf2-sha256: [t] è il numero di iterazioni.
+/// KDF parameters. For argon2id: [m] is the memory in KiB, [t] the iterations,
+/// [p] the parallelism. For pbkdf2-sha256: [t] is the number of iterations.
 class KdfParams {
   final KdfAlgorithm algorithm;
   final int m;
@@ -62,8 +62,8 @@ class KdfParams {
   String toString() => toJson().toString();
 }
 
-/// Derivazione della chiave. Usa argon2id quando disponibile, con fallback
-/// automatico su pbkdf2-sha256 se la libreria nativa non si carica.
+/// Key derivation. Uses argon2id when available, with automatic fallback
+/// to pbkdf2-sha256 if the native library does not load.
 class Kdf {
   Argon2? _argon2;
   bool _argon2Failed = false;
@@ -98,7 +98,7 @@ class Kdf {
         _argon2Failed = true;
       }
     }
-    // Fallback deterministico: PBKDF2 con parametri derivati dai costi argon2.
+    // Deterministic fallback: PBKDF2 with parameters derived from the argon2 costs.
     return _derivePbkdf2(password, salt,
         KdfParams.pbkdf2(iterations: (params.t * 1000).clamp(100000, 600000)),
         length);

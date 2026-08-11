@@ -6,7 +6,7 @@ import '../../state/biometrics.dart';
 import '../../state/providers.dart';
 import '../../state/session.dart';
 
-/// Schermata di unlock: richiede la master password per decriptare il vault locale.
+/// Unlock screen: requires the master password to decrypt the local vault.
 class UnlockScreen extends ConsumerStatefulWidget {
   const UnlockScreen({super.key});
 
@@ -24,9 +24,9 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
   @override
   void initState() {
     super.initState();
-    // Appena appare il lock screen, se la biometria è attiva il prompt parte
-    // da solo (una sola volta per schermata). Il plugin ri-autentica a ogni
-    // lettura, quindi il prompt non può essere saltato.
+    // As soon as the lock screen appears, if biometrics are enabled the prompt
+    // fires on its own (once per screen). The plugin re-authenticates on every
+    // read, so the prompt cannot be skipped.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _autoPrompted) return;
       final enabled =

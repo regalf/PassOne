@@ -6,7 +6,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Timeout di lock. [minutes] è -1 per "sempre".
+/// Lock timeout. [minutes] is -1 for "always".
 enum LockTimeout {
   one(1),
   two(2),
@@ -27,15 +27,15 @@ enum LockTimeout {
   }
 }
 
-/// Impostazioni dell'app persistite in shared_preferences.
+/// App settings persisted in shared_preferences.
 class AppSettings {
   final String serverUrl;
   final String? lastUsername;
   final LockTimeout lockTimeout;
   final bool biometricsEnabled;
 
-  /// Codice lingua forzata: null = segue la lingua di sistema,
-  /// 'it' o 'en' per una scelta esplicita.
+  /// Forced language code: null = follows the system language,
+  /// 'it' or 'en' for an explicit choice.
   final String? languageCode;
 
   const AppSettings({
@@ -78,7 +78,7 @@ class AppSettings {
       languageCode: code);
 }
 
-/// Cache del vault criptato + materiali per l'unlock offline.
+/// Encrypted vault cache + materials for offline unlock.
 class CachedVault {
   final String token;
   final int userId;
@@ -144,7 +144,7 @@ class CachedVault {
       );
 }
 
-/// Persistenza di impostazioni e cache vault.
+/// Persistence of settings and vault cache.
 class SettingsRepository {
   static const _kServerUrl = 'serverUrl';
   static const _kLastUsername = 'lastUsername';
@@ -208,7 +208,7 @@ class SettingsRepository {
   }
 }
 
-/// SHA-256 (usato per authHash e recovery hash).
+/// SHA-256 (used for authHash and recovery hash).
 Future<Uint8List> sha256Bytes(List<int> data) async {
   final hash = await Sha256().hash(data);
   return Uint8List.fromList(hash.bytes);

@@ -1,6 +1,6 @@
 import 'package:uuid/uuid.dart';
 
-/// Una singola voce del vault (credential).
+/// A single vault entry (credential).
 class VaultEntry {
   final String id;
   String name;
@@ -29,7 +29,7 @@ class VaultEntry {
         createdAt = DateTime.now().toUtc(),
         updatedAt = DateTime.now().toUtc();
 
-  /// True se è una voce TOTP (autenticatore).
+  /// True if it is a TOTP entry (authenticator).
   bool get isTotp => totpSecret != null;
 
   VaultEntry copyWith({
@@ -78,7 +78,7 @@ class VaultEntry {
       );
 }
 
-/// L'intero vault: lista di voci. Serializzato come JSON e criptato con la vault_key.
+/// The whole vault: list of entries. Serialized as JSON and encrypted with the vault_key.
 class VaultData {
   final List<VaultEntry> entries;
 

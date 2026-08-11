@@ -4,8 +4,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../crypto/totp.dart';
 import '../../l10n/l10n.dart';
 
-/// Scanner QR per l'import TOTP: restituisce un [TotpUriData] quando rileva un
-/// QR valido (otpauth:// oppure una chiave Base32 nuda).
+/// QR scanner for TOTP import: returns a [TotpUriData] when it detects a
+/// valid QR (otpauth:// or a bare Base32 key).
 class QrScannerScreen extends StatefulWidget {
   const QrScannerScreen({super.key});
 
