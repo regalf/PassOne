@@ -41,12 +41,12 @@ func main() {
 	case "help", "--help", "-h":
 		usage()
 	default:
-		fmt.Fprintf(os.Stderr, "comando sconosciuto: %s\n\n", cmd)
+		fmt.Fprintf(os.Stderr, "unknown command: %s\n\n", cmd)
 		usage()
 		os.Exit(1)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "errore:", err)
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
@@ -70,9 +70,9 @@ Uso:
 
 func cmdServe(log *slog.Logger, args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ContinueOnError)
-	configPath := fs.String("config", "config.yaml", "percorso file di configurazione")
-	noUI := fs.Bool("no-ui", false, "disabilita la web UI admin")
-	addr := fs.String("addr", "", "override indirizzo di ascolto")
+	configPath := fs.String("config", "config.yaml", "path to the configuration file")
+	noUI := fs.Bool("no-ui", false, "disable the admin web UI")
+	addr := fs.String("addr", "", "override the listen address")
 	_ = fs.Parse(args)
 
 	cfg, err := config.Load(*configPath)
@@ -100,14 +100,14 @@ func cmdServe(log *slog.Logger, args []string) error {
 	}
 
 	if cfg.TLSCert == "" || cfg.TLSKey == "" {
-		log.Warn("server in esecuzione SENZA TLS/HTTPS — il trasporto non è cifrato; la crittografia end-to-end resta attiva ma si consiglia di usare un reverse proxy HTTPS (es. Caddy).")
+		log.Warn("server running WITHOUT TLS/HTTPS — the transport is not encrypted; end-to-end encryption stays active, but using an HTTPS reverse proxy (e.g. Caddy) is recommended.")
 	} else {
-		log.Info("TLS abilitato", "cert", cfg.TLSCert)
+		log.Info("TLS enabled", "cert", cfg.TLSCert)
 	}
 	if cfg.AdminToken == "" {
-		log.Info("admin token generato (salvalo!)", "admin_token", srv.AdminToken(), "db_path", cfg.DBPath)
+		log.Info("admin token generated (save it!)", "admin_token", srv.AdminToken(), "db_path", cfg.DBPath)
 	} else {
-		log.Info("admin token da configurazione", "db_path", cfg.DBPath)
+		log.Info("admin token from configuration", "db_path", cfg.DBPath)
 	}
 
 	httpServer := &http.Server{
@@ -118,7 +118,7 @@ func cmdServe(log *slog.Logger, args []string) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("PassOne server in ascolto", "addr", cfg.Addr, "ui", cfg.EnableUI)
+		log.Info("PassOne server listening", "addr", cfg.Addr, "ui", cfg.EnableUI)
 		if cfg.TLSCert != "" && cfg.TLSKey != "" {
 			errCh <- httpServer.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey)
 		} else {
@@ -133,7 +133,7 @@ func cmdServe(log *slog.Logger, args []string) error {
 	case err := <-errCh:
 		return err
 	case sig := <-stop:
-		log.Info("arresto in corso", "signal", sig.String())
+		log.Info("shutting down", "signal", sig.String())
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		return httpServer.Shutdown(ctx)
@@ -144,7 +144,7 @@ func cmdServe(log *slog.Logger, args []string) error {
 
 func cmdUser(log *slog.Logger, args []string) error {
 	if len(args) < 1 {
-		return errors.New("uso: passone user create|list|disable|reset-invite")
+		return errors.New("usage: passone user create|list|disable|reset-invite")
 	}
 	sub, rest := args[0], args[1:]
 
@@ -161,13 +161,13 @@ func cmdUser(log *slog.Logger, args []string) error {
 	switch sub {
 	case "create":
 		if len(rest) != 1 {
-			return errors.New("uso: passone user create <username>")
+			return errors.New("usage: passone user create <username>")
 		}
 		token, err := st.CreatePendingUser(rest[0])
 		if err != nil {
 			return err
 		}
-		fmt.Printf("utente '%s' creato (pending)\ninvite token: %s\n", rest[0], token)
+		fmt.Printf("user '%s' created (pending)\ninvite token: %s\n", rest[0], token)
 		return nil
 	case "list":
 		users, err := st.ListUsers()
@@ -180,21 +180,21 @@ func cmdUser(log *slog.Logger, args []string) error {
 		return nil
 	case "disable":
 		if len(rest) != 1 {
-			return errors.New("uso: passone user disable <username>")
+			return errors.New("usage: passone user disable <username>")
 		}
 		return disableUser(st, rest[0])
 	case "reset-invite":
 		if len(rest) != 1 {
-			return errors.New("uso: passone user reset-invite <username>")
+			return errors.New("usage: passone user reset-invite <username>")
 		}
 		token, err := st.ResetInviteToken(rest[0])
 		if err != nil {
 			return err
 		}
-		fmt.Printf("nuovo invite token: %s\n", token)
+		fmt.Printf("new invite token: %s\n", token)
 		return nil
 	default:
-		return fmt.Errorf("sottocomando sconosciuto: %s", sub)
+		return fmt.Errorf("unknown subcommand: %s", sub)
 	}
 }
 
@@ -216,7 +216,7 @@ func loadConfigForCLI() (*config.Config, error) {
 	cfg, err := config.Load(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, errors.New("config.yaml non trovata: avvia 'passone config init'")
+			return nil, errors.New("config.yaml not found: run 'passone config init'")
 		}
 		return nil, err
 	}
@@ -228,10 +228,10 @@ func loadConfigForCLI() (*config.Config, error) {
 
 func cmdConfig(args []string) error {
 	if len(args) < 1 || args[0] != "init" {
-		return errors.New("uso: passone config init [--out config.yaml]")
+		return errors.New("usage: passone config init [--out config.yaml]")
 	}
 	fs := flag.NewFlagSet("config", flag.ContinueOnError)
-	out := fs.String("out", "config.yaml", "file di output")
+	out := fs.String("out", "config.yaml", "output file")
 	_ = fs.Parse(args[1:])
 	cfg := config.Default()
 	// Generates a random admin token so it doesn't need to be printed.
@@ -243,7 +243,7 @@ func cmdConfig(args []string) error {
 	if err := config.Write(*out, cfg); err != nil {
 		return err
 	}
-	fmt.Printf("configurazione scritta in %s\n", *out)
+	fmt.Printf("configuration written to %s\n", *out)
 	return nil
 }
 
@@ -251,7 +251,7 @@ func cmdConfig(args []string) error {
 
 func cmdBackup(log *slog.Logger, args []string) error {
 	fs := flag.NewFlagSet("backup", flag.ContinueOnError)
-	out := fs.String("out", "passone-backup.json", "file di output")
+	out := fs.String("out", "passone-backup.json", "output file")
 	_ = fs.Parse(args)
 
 	cfg, err := loadConfigForCLI()
@@ -327,6 +327,6 @@ func cmdBackup(log *slog.Logger, args []string) error {
 	if err := os.WriteFile(*out, data, 0o600); err != nil {
 		return err
 	}
-	log.Info("backup completato", "file", *out, "utenti", len(outData))
+	log.Info("backup completed", "file", *out, "users", len(outData))
 	return nil
 }

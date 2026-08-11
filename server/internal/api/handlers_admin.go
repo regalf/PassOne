@@ -20,7 +20,7 @@ type adminUserResponse struct {
 func (s *Server) handleAdminListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := s.store.ListUsers()
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "errore interno", "internal")
+		writeErr(w, http.StatusInternalServerError, "internal error", "internal")
 		return
 	}
 	out := make([]adminUserResponse, 0, len(users))
@@ -44,22 +44,22 @@ type adminCreateUserRequest struct {
 func (s *Server) handleAdminCreateUser(w http.ResponseWriter, r *http.Request) {
 	var req adminCreateUserRequest
 	if err := decodeJSON(w, r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, "body non valido", "bad_request")
+		writeErr(w, http.StatusBadRequest, "invalid body", "bad_request")
 		return
 	}
 	username := strings.TrimSpace(req.Username)
 	if username == "" || len(username) > 128 {
-		writeErr(w, http.StatusBadRequest, "username non valido", "bad_username")
+		writeErr(w, http.StatusBadRequest, "invalid username", "bad_username")
 		return
 	}
 	token, err := s.store.CreatePendingUser(username)
 	if err != nil {
-		writeErr(w, http.StatusConflict, "username già in uso", "username_taken")
+		writeErr(w, http.StatusConflict, "username already in use", "username_taken")
 		return
 	}
 	u, err := s.store.GetUserByUsername(username)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "errore interno", "internal")
+		writeErr(w, http.StatusInternalServerError, "internal error", "internal")
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{
@@ -77,7 +77,7 @@ func (s *Server) handleAdminCreateUser(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleAdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "id non valido", "bad_id")
+		writeErr(w, http.StatusBadRequest, "invalid id", "bad_id")
 		return
 	}
 	if err := s.store.DeleteUser(id); err != nil {
@@ -91,7 +91,7 @@ func (s *Server) handleAdminDeleteUser(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleAdminResetInvite(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "id non valido", "bad_id")
+		writeErr(w, http.StatusBadRequest, "invalid id", "bad_id")
 		return
 	}
 	u, err := s.store.GetUserByID(id)
@@ -101,12 +101,12 @@ func (s *Server) handleAdminResetInvite(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if u.Status != store.StatusPending {
-		writeErr(w, http.StatusConflict, "l'utente non è in stato pending", "not_pending")
+		writeErr(w, http.StatusConflict, "user is not in pending state", "not_pending")
 		return
 	}
 	token, err := s.store.ResetInviteToken(u.Username)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "errore interno", "internal")
+		writeErr(w, http.StatusInternalServerError, "internal error", "internal")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"invite_token": token})

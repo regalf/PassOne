@@ -68,23 +68,23 @@ type changePasswordRequest struct {
 func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	var req changePasswordRequest
 	if err := decodeJSON(w, r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, "body non valido", "bad_request")
+		writeErr(w, http.StatusBadRequest, "invalid body", "bad_request")
 		return
 	}
 	u := s.userFrom(r.Context())
 	oldHash, err := crypto.DecodeBase64(req.OldAuthHashB64)
 	if err != nil || !auth.VerifyAuthHash(u, oldHash) {
-		writeErr(w, http.StatusUnauthorized, "password attuale non valida", "bad_old_password")
+		writeErr(w, http.StatusUnauthorized, "invalid current password", "bad_old_password")
 		return
 	}
 	newMat, code := s.parseAuthMaterial(req.New)
 	if code != "" {
-		writeErr(w, http.StatusBadRequest, "materiali non validi", code)
+		writeErr(w, http.StatusBadRequest, "invalid materials", code)
 		return
 	}
 	newMat.ID = u.ID
 	if err := s.store.UpdateAuthMaterial(newMat, newMat.KDFParams, false); err != nil {
-		writeErr(w, http.StatusInternalServerError, "errore interno", "internal")
+		writeErr(w, http.StatusInternalServerError, "internal error", "internal")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
@@ -109,21 +109,21 @@ type recoverPayloadRequest struct {
 func (s *Server) handleRecoverPayload(w http.ResponseWriter, r *http.Request) {
 	var req recoverPayloadRequest
 	if err := decodeJSON(w, r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, "body non valido", "bad_request")
+		writeErr(w, http.StatusBadRequest, "invalid body", "bad_request")
 		return
 	}
 	u, err := s.store.GetUserByUsername(strings.TrimSpace(req.Username))
 	if err != nil {
-		writeErr(w, http.StatusUnauthorized, "recovery key non valida", "bad_recovery")
+		writeErr(w, http.StatusUnauthorized, "invalid recovery key", "bad_recovery")
 		return
 	}
 	recHash, err := crypto.DecodeBase64(req.RecoveryHashB64)
 	if err != nil || !auth.VerifyRecoveryHash(u, recHash) {
-		writeErr(w, http.StatusUnauthorized, "recovery key non valida", "bad_recovery")
+		writeErr(w, http.StatusUnauthorized, "invalid recovery key", "bad_recovery")
 		return
 	}
 	if u.VaultKeyWrappedRecov == nil {
-		writeErr(w, http.StatusNotFound, "recovery key non attiva per questo account", "no_recovery")
+		writeErr(w, http.StatusNotFound, "recovery key not active for this account", "no_recovery")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -140,22 +140,22 @@ func (s *Server) handleRecoverPayload(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleRecover(w http.ResponseWriter, r *http.Request) {
 	var req recoverRequest
 	if err := decodeJSON(w, r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, "body non valido", "bad_request")
+		writeErr(w, http.StatusBadRequest, "invalid body", "bad_request")
 		return
 	}
 	u, err := s.store.GetUserByUsername(strings.TrimSpace(req.Username))
 	if err != nil {
-		writeErr(w, http.StatusUnauthorized, "recovery non valida", "bad_recovery")
+		writeErr(w, http.StatusUnauthorized, "invalid recovery key", "bad_recovery")
 		return
 	}
 	recHash, err := crypto.DecodeBase64(req.RecoveryHashB64)
 	if err != nil || !auth.VerifyRecoveryHash(u, recHash) {
-		writeErr(w, http.StatusUnauthorized, "recovery key non valida", "bad_recovery")
+		writeErr(w, http.StatusUnauthorized, "invalid recovery key", "bad_recovery")
 		return
 	}
 	newMat, code := s.parseAuthMaterial(req.New)
 	if code != "" {
-		writeErr(w, http.StatusBadRequest, "materiali non validi", code)
+		writeErr(w, http.StatusBadRequest, "invalid materials", code)
 		return
 	}
 	newMat.ID = u.ID
@@ -163,13 +163,13 @@ func (s *Server) handleRecover(w http.ResponseWriter, r *http.Request) {
 	// Atomic transaction: replaces the auth material, burns the previous recovery key
 	// and revokes all sessions.
 	if err := s.store.UpdateAuthMaterial(newMat, newMat.KDFParams, true); err != nil {
-		writeErr(w, http.StatusInternalServerError, "errore interno", "internal")
+		writeErr(w, http.StatusInternalServerError, "internal error", "internal")
 		return
 	}
 	// Creates a fresh session for the user who just recovered access.
 	fresh, err := s.store.GetUserByID(u.ID)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "errore interno", "internal")
+		writeErr(w, http.StatusInternalServerError, "internal error", "internal")
 		return
 	}
 	s.completeSession(w, fresh, req.DeviceName)

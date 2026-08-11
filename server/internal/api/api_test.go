@@ -136,7 +136,7 @@ func TestPrelogin(t *testing.T) {
 		t.Fatalf("status = %v", out["status"])
 	}
 	if out["salt_b64"] != crypto.EncodeBase64([]byte("fake-salt")) {
-		t.Fatalf("salt non tornato: %v", out["salt_b64"])
+		t.Fatalf("salt not returned: %v", out["salt_b64"])
 	}
 }
 
@@ -148,7 +148,7 @@ func TestRegistrationAndLogin(t *testing.T) {
 	}
 	token := out["token"].(string)
 	if token == "" {
-		t.Fatal("token vuoto")
+		t.Fatal("empty token")
 	}
 	code, out = post(t, ts.URL, "/api/v1/auth/login", "", map[string]any{
 		"username": "alice", "auth_hash_b64": crypto.EncodeBase64([]byte("fake-auth-hash-32-bytes-long!!!")),
@@ -157,7 +157,7 @@ func TestRegistrationAndLogin(t *testing.T) {
 		t.Fatalf("login status = %d, body = %v", code, out)
 	}
 	if out["token"] == "" {
-		t.Fatal("login senza token")
+		t.Fatal("login without token")
 	}
 }
 
@@ -168,7 +168,7 @@ func TestLoginWrongPassword(t *testing.T) {
 		"username": "bob", "auth_hash_b64": crypto.EncodeBase64([]byte("wrong-hash")),
 	})
 	if code != 401 {
-		t.Fatalf("status = %d, atteso 401", code)
+		t.Fatalf("status = %d, expected 401", code)
 	}
 }
 
@@ -176,7 +176,7 @@ func TestVaultGetPutAndConflict(t *testing.T) {
 	ts, _ := newTestServer(t)
 	code, out := post(t, ts.URL, "/api/v1/auth/setup", "", setupPayload("carol", ""))
 	if code != 200 {
-		t.Fatal("setup fallito")
+		t.Fatal("setup failed")
 	}
 	token := out["token"].(string)
 
@@ -197,7 +197,7 @@ func TestVaultGetPutAndConflict(t *testing.T) {
 		t.Fatalf("vault put = %d, body=%v", code, out)
 	}
 	if out["vault_revision"].(float64) != 2 {
-		t.Fatalf("revision dopo put = %v", out["vault_revision"])
+		t.Fatalf("revision after put = %v", out["vault_revision"])
 	}
 
 	// Conflict: stale base_revision.
@@ -207,7 +207,7 @@ func TestVaultGetPutAndConflict(t *testing.T) {
 		"vault_nonce_b64": crypto.EncodeBase64([]byte("nonce3")),
 	})
 	if code != 409 {
-		t.Fatalf("atteso 409, status = %d", code)
+		t.Fatalf("expected 409, status = %d", code)
 	}
 	if out["current_revision"].(float64) != 2 {
 		t.Fatalf("current_revision = %v", out["current_revision"])
@@ -225,17 +225,17 @@ func TestPendingInviteFlow(t *testing.T) {
 		"username": "dave", "auth_hash_b64": crypto.EncodeBase64([]byte("x")),
 	})
 	if code != 409 {
-		t.Fatalf("atteso 409 pending, status=%d", code)
+		t.Fatalf("expected 409 pending, status=%d", code)
 	}
 	// Setup with wrong invite token -> 403
 	code, _ = post(t, ts.URL, "/api/v1/auth/setup", "", setupPayload("dave", "wrong-token"))
 	if code != 403 {
-		t.Fatalf("atteso 403, status=%d", code)
+		t.Fatalf("expected 403, status=%d", code)
 	}
 	// Correct setup
 	code, out = post(t, ts.URL, "/api/v1/auth/setup", "", setupPayload("dave", token))
 	if code != 200 {
-		t.Fatalf("setup con invite = %d, body=%v", code, out)
+		t.Fatalf("setup with invite = %d, body=%v", code, out)
 	}
 	// login now works
 	code, _ = post(t, ts.URL, "/api/v1/auth/login", "", map[string]any{
@@ -263,7 +263,7 @@ func TestAdminUsers(t *testing.T) {
 		t.Fatalf("create user = %d, body=%v", res.StatusCode, out)
 	}
 	if out["invite_token"] == "" {
-		t.Fatal("manca invite_token")
+		t.Fatal("missing invite_token")
 	}
 
 	req, _ = http.NewRequest("GET", ts.URL+"/api/v1/admin/users", nil)
@@ -284,7 +284,7 @@ func TestAdminUsers(t *testing.T) {
 	}
 	res.Body.Close()
 	if res.StatusCode != 401 {
-		t.Fatalf("admin senza token = %d, atteso 401", res.StatusCode)
+		t.Fatalf("admin without token = %d, expected 401", res.StatusCode)
 	}
 }
 
@@ -299,7 +299,7 @@ func TestChangePasswordAndLogoutAll(t *testing.T) {
 		"new":               map[string]any{},
 	})
 	if code != 401 {
-		t.Fatalf("atteso 401, status=%d", code)
+		t.Fatalf("expected 401, status=%d", code)
 	}
 
 	// Correct password change
@@ -330,7 +330,7 @@ func TestChangePasswordAndLogoutAll(t *testing.T) {
 	// The old session is now invalid
 	code, _ = get(t, ts.URL, "/api/v1/vault", token)
 	if code != 401 {
-		t.Fatalf("atteso 401 dopo logout-all, status=%d", code)
+		t.Fatalf("expected 401 after logout-all, status=%d", code)
 	}
 }
 
@@ -351,14 +351,14 @@ func TestRecoverFlow(t *testing.T) {
 		t.Fatalf("recover-payload = %d, body=%v", code, out)
 	}
 	if out["vault_key_wrapped_recov_b64"] != crypto.EncodeBase64([]byte("wrapped-recov")) {
-		t.Fatalf("payload recov key sbagliata: %v", out["vault_key_wrapped_recov_b64"])
+		t.Fatalf("wrong recov key payload: %v", out["vault_key_wrapped_recov_b64"])
 	}
 	// The key is NOT burned by recover-payload
 	code, _ = post(t, ts.URL, "/api/v1/auth/recover-payload", "", map[string]any{
 		"username": "grace", "recovery_hash_b64": crypto.EncodeBase64([]byte("recovery-hash-1")),
 	})
 	if code != 200 {
-		t.Fatalf("recover-payload deve essere idempotente, status=%d", code)
+		t.Fatalf("recover-payload must be idempotent, status=%d", code)
 	}
 
 	// Recovery with wrong hash -> 401
@@ -367,7 +367,7 @@ func TestRecoverFlow(t *testing.T) {
 		"new": map[string]any{},
 	})
 	if code != 401 {
-		t.Fatalf("atteso 401, status=%d", code)
+		t.Fatalf("expected 401, status=%d", code)
 	}
 
 	// Correct recovery -> new session, burned key, revoked sessions
@@ -390,12 +390,12 @@ func TestRecoverFlow(t *testing.T) {
 	// Old session revoked
 	code, _ = get(t, ts.URL, "/api/v1/vault", token)
 	if code != 401 {
-		t.Fatalf("atteso 401 vecchia sessione, status=%d", code)
+		t.Fatalf("expected 401 for old session, status=%d", code)
 	}
 	// New session works
 	code, out = get(t, ts.URL, "/api/v1/vault", newToken)
 	if code != 200 {
-		t.Fatalf("vault con nuova sessione = %d", code)
+		t.Fatalf("vault with new session = %d", code)
 	}
 	if out["recovery_enabled"] != true {
 		t.Fatalf("recovery_enabled = %v", out["recovery_enabled"])
@@ -411,7 +411,7 @@ func TestRecoverFlow(t *testing.T) {
 		},
 	})
 	if code != 401 {
-		t.Fatalf("atteso 401 recovery bruciata, status=%d", code)
+		t.Fatalf("expected 401 for burned recovery, status=%d", code)
 	}
 }
 
@@ -430,6 +430,6 @@ func TestRegistrationDisabled(t *testing.T) {
 
 	code, _ := post(t, ts.URL, "/api/v1/auth/setup", "", setupPayload("noreg", ""))
 	if code != 403 {
-		t.Fatalf("atteso 403, status=%d", code)
+		t.Fatalf("expected 403, status=%d", code)
 	}
 }

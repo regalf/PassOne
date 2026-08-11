@@ -51,16 +51,16 @@ func (s *Server) authed(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		token := bearerToken(r)
 		if token == "" {
-			writeErr(w, http.StatusUnauthorized, "sessione mancante", "no_session")
+			writeErr(w, http.StatusUnauthorized, "missing session", "no_session")
 			return
 		}
 		u, err := s.store.GetUserBySessionToken(token)
 		if err != nil {
-			writeErr(w, http.StatusUnauthorized, "sessione non valida o scaduta", "bad_session")
+			writeErr(w, http.StatusUnauthorized, "invalid or expired session", "bad_session")
 			return
 		}
 		if u.Status != store.StatusActive {
-			writeErr(w, http.StatusForbidden, "account non attivo", "inactive")
+			writeErr(w, http.StatusForbidden, "account not active", "inactive")
 			return
 		}
 		next(w, r.WithContext(context.WithValue(r.Context(), ctxUserKey, u)))
@@ -71,7 +71,7 @@ func (s *Server) authed(next http.HandlerFunc) http.HandlerFunc {
 func (s *Server) adminOnly(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if s.admin == "" || !crypto.SecureEqualString(bearerToken(r), s.admin) {
-			writeErr(w, http.StatusUnauthorized, "token admin non valido", "bad_admin_token")
+			writeErr(w, http.StatusUnauthorized, "invalid admin token", "bad_admin_token")
 			return
 		}
 		next(w, r)
@@ -82,7 +82,7 @@ func (s *Server) adminOnly(next http.HandlerFunc) http.HandlerFunc {
 func (s *Server) rateLimited(name string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !s.rl.Allow(clientIP(r)) {
-			writeErr(w, http.StatusTooManyRequests, "troppe richieste, riprova più tardi", "rate_limited")
+			writeErr(w, http.StatusTooManyRequests, "too many requests, try again later", "rate_limited")
 			return
 		}
 		next(w, r)

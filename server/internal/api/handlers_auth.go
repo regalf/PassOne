@@ -85,41 +85,41 @@ func toPublic(u *store.User) userPublic {
 func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	var req setupRequest
 	if err := decodeJSON(w, r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, "body non valido", "bad_request")
+		writeErr(w, http.StatusBadRequest, "invalid body", "bad_request")
 		return
 	}
 	username := strings.TrimSpace(req.Username)
 	if username == "" || len(username) > 128 {
-		writeErr(w, http.StatusBadRequest, "username non valido", "bad_username")
+		writeErr(w, http.StatusBadRequest, "invalid username", "bad_username")
 		return
 	}
 	if !s.validateKDF(req.KDF) {
-		writeErr(w, http.StatusBadRequest, "parametri KDF non validi", "bad_kdf")
+		writeErr(w, http.StatusBadRequest, "invalid KDF parameters", "bad_kdf")
 		return
 	}
 	authHash, err := crypto.DecodeBase64(req.AuthHashB64)
 	if err != nil || len(authHash) == 0 {
-		writeErr(w, http.StatusBadRequest, "auth_hash non valido", "bad_auth_hash")
+		writeErr(w, http.StatusBadRequest, "invalid auth_hash", "bad_auth_hash")
 		return
 	}
 	salt, err := crypto.DecodeBase64(req.SaltB64)
 	if err != nil || len(salt) == 0 {
-		writeErr(w, http.StatusBadRequest, "salt non valido", "bad_salt")
+		writeErr(w, http.StatusBadRequest, "invalid salt", "bad_salt")
 		return
 	}
 	wrapped, err := crypto.DecodeBase64(req.VaultKeyWrappedB64)
 	if err != nil || len(wrapped) == 0 {
-		writeErr(w, http.StatusBadRequest, "vault_key avvolta non valida", "bad_wrapped_key")
+		writeErr(w, http.StatusBadRequest, "invalid wrapped vault_key", "bad_wrapped_key")
 		return
 	}
 	blob, err := crypto.DecodeBase64(req.VaultBlobB64)
 	if err != nil || len(blob) == 0 {
-		writeErr(w, http.StatusBadRequest, "vault blob non valido", "bad_blob")
+		writeErr(w, http.StatusBadRequest, "invalid vault blob", "bad_blob")
 		return
 	}
 	nonce, err := crypto.DecodeBase64(req.VaultNonceB64)
 	if err != nil || len(nonce) == 0 {
-		writeErr(w, http.StatusBadRequest, "nonce non valido", "bad_nonce")
+		writeErr(w, http.StatusBadRequest, "invalid nonce", "bad_nonce")
 		return
 	}
 
@@ -128,12 +128,12 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	if req.RecoveryHashB64 != "" {
 		recoveryHash, err = crypto.DecodeBase64(req.RecoveryHashB64)
 		if err != nil {
-			writeErr(w, http.StatusBadRequest, "recovery hash non valido", "bad_recovery_hash")
+			writeErr(w, http.StatusBadRequest, "invalid recovery hash", "bad_recovery_hash")
 			return
 		}
 		wrappedRecov, err = crypto.DecodeBase64(req.VaultKeyWrappedRecovB64)
 		if err != nil || len(wrappedRecov) == 0 {
-			writeErr(w, http.StatusBadRequest, "vault_key recovery avvolta mancante", "bad_wrapped_recov")
+			writeErr(w, http.StatusBadRequest, "missing wrapped recovery vault_key", "bad_wrapped_recov")
 			return
 		}
 	}
@@ -157,11 +157,11 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		// Admin flow: the user must exist as pending.
 		existing, err := s.store.GetUserByUsername(username)
 		if err != nil || existing.Status != store.StatusPending {
-			writeErr(w, http.StatusConflict, "account non in attesa di configurazione", "not_pending")
+			writeErr(w, http.StatusConflict, "account is not awaiting configuration", "not_pending")
 			return
 		}
 		if !auth.VerifyInviteToken(existing, req.InviteToken) {
-			writeErr(w, http.StatusForbidden, "invite token non valido", "bad_invite")
+			writeErr(w, http.StatusForbidden, "invalid invite token", "bad_invite")
 			return
 		}
 		u.ID = existing.ID
@@ -172,12 +172,12 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		if !s.cfg.AllowRegistration {
-			writeErr(w, http.StatusForbidden, "registrazione disabilitata", "registration_disabled")
+			writeErr(w, http.StatusForbidden, "registration disabled", "registration_disabled")
 			return
 		}
 		u.ID, err = s.createUser(username, u)
 		if err != nil {
-			writeErr(w, http.StatusConflict, "username già in uso", "username_taken")
+			writeErr(w, http.StatusConflict, "username already in use", "username_taken")
 			return
 		}
 	}
@@ -203,7 +203,7 @@ type preloginRequest struct {
 func (s *Server) handlePrelogin(w http.ResponseWriter, r *http.Request) {
 	var req preloginRequest
 	if err := decodeJSON(w, r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, "body non valido", "bad_request")
+		writeErr(w, http.StatusBadRequest, "invalid body", "bad_request")
 		return
 	}
 	username := strings.TrimSpace(req.Username)
@@ -236,25 +236,25 @@ type loginRequest struct {
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := decodeJSON(w, r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, "body non valido", "bad_request")
+		writeErr(w, http.StatusBadRequest, "invalid body", "bad_request")
 		return
 	}
 	u, err := s.store.GetUserByUsername(strings.TrimSpace(req.Username))
 	if err != nil {
-		writeErr(w, http.StatusUnauthorized, "credenziali non valide", "bad_credentials")
+		writeErr(w, http.StatusUnauthorized, "invalid credentials", "bad_credentials")
 		return
 	}
 	if u.Status == store.StatusPending {
-		writeErr(w, http.StatusConflict, "account in attesa di configurazione", "pending")
+		writeErr(w, http.StatusConflict, "account is awaiting configuration", "pending")
 		return
 	}
 	if u.Status != store.StatusActive {
-		writeErr(w, http.StatusForbidden, "account disabilitato", "disabled")
+		writeErr(w, http.StatusForbidden, "account disabled", "disabled")
 		return
 	}
 	authHash, err := crypto.DecodeBase64(req.AuthHashB64)
 	if err != nil || !auth.VerifyAuthHash(u, authHash) {
-		writeErr(w, http.StatusUnauthorized, "credenziali non valide", "bad_credentials")
+		writeErr(w, http.StatusUnauthorized, "invalid credentials", "bad_credentials")
 		return
 	}
 	_ = s.store.UpdateLastLogin(u.ID)
@@ -269,7 +269,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleLogoutAll(w http.ResponseWriter, r *http.Request) {
 	u := s.userFrom(r.Context())
 	if err := s.store.DeleteAllSessions(u.ID); err != nil {
-		writeErr(w, http.StatusInternalServerError, "errore interno", "internal")
+		writeErr(w, http.StatusInternalServerError, "internal error", "internal")
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -279,7 +279,7 @@ func (s *Server) handleLogoutAll(w http.ResponseWriter, r *http.Request) {
 func (s *Server) completeSession(w http.ResponseWriter, u *store.User, deviceName string) {
 	token, err := s.store.CreateSession(u.ID, deviceName, s.cfg.SessionTTL)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "errore interno", "internal")
+		writeErr(w, http.StatusInternalServerError, "internal error", "internal")
 		return
 	}
 	writeJSON(w, http.StatusOK, sessionResponse{

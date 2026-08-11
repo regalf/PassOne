@@ -104,19 +104,19 @@ type Store struct {
 func Open(dbPath string) (*Store, error) {
 	if dir := filepath.Dir(dbPath); dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return nil, fmt.Errorf("crea directory db: %w", err)
+			return nil, fmt.Errorf("creating db directory: %w", err)
 		}
 	}
 	dsn := "file:" + dbPath + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("open sqlite: %w", err)
+		return nil, fmt.Errorf("opening sqlite: %w", err)
 	}
 	// WAL multi-writer is not needed: single process, but useful for the concurrent CLI.
 	db.SetMaxOpenConns(1)
 	if _, err := db.Exec(schema); err != nil {
 		db.Close()
-		return nil, fmt.Errorf("migrazione schema: %w", err)
+		return nil, fmt.Errorf("schema migration: %w", err)
 	}
 	return &Store{db: db}, nil
 }
@@ -434,7 +434,7 @@ func (u *User) parseExtras() error {
 		return nil
 	}
 	if err := json.Unmarshal([]byte(u.kdfParamsRaw), &u.KDFParams); err != nil {
-		return fmt.Errorf("kdf_params invalidi per %s: %w", u.Username, err)
+		return fmt.Errorf("invalid kdf_params for %s: %w", u.Username, err)
 	}
 	u.CreatedAt = parseTime(u.createdAtRaw)
 	u.UpdatedAt = parseTime(u.updatedAtRaw)

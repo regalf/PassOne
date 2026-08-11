@@ -56,7 +56,7 @@ func Load(path string) (*Config, error) {
 	cfg := Default()
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("lettura config: %w", err)
+		return nil, fmt.Errorf("reading config: %w", err)
 	}
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)

@@ -4,6 +4,6 @@ import "errors"
 
 // Database domain errors.
 var (
-	ErrNotFound = errors.New("risorsa non trovata")
-	ErrConflict = errors.New("conflitto di revisione")
+	ErrNotFound = errors.New("resource not found")
+	ErrConflict = errors.New("revision conflict")
 )

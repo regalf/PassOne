@@ -16,7 +16,7 @@ const rfc3339 = time.RFC3339
 
 func timeNow() time.Time { return time.Now().UTC() }
 
-var errUsernameTaken = errors.New("username già in uso")
+var errUsernameTaken = errors.New("username already in use")
 
 // Server is the PassOne HTTP server.
 type Server struct {
@@ -111,10 +111,10 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 func httpStatus(err error) (int, string) {
 	switch {
 	case errors.Is(err, store.ErrNotFound):
-		return http.StatusNotFound, "risorsa non trovata"
+		return http.StatusNotFound, "resource not found"
 	case errors.Is(err, store.ErrConflict):
-		return http.StatusConflict, "conflitto di revisione"
+		return http.StatusConflict, "revision conflict"
 	default:
-		return http.StatusInternalServerError, "errore interno"
+		return http.StatusInternalServerError, "internal error"
 	}
 }

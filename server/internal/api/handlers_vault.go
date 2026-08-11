@@ -50,32 +50,32 @@ type vaultPutRequest struct {
 func (s *Server) handleVaultPut(w http.ResponseWriter, r *http.Request) {
 	var req vaultPutRequest
 	if err := decodeJSON(w, r, &req); err != nil {
-		writeErr(w, http.StatusBadRequest, "body non valido", "bad_request")
+		writeErr(w, http.StatusBadRequest, "invalid body", "bad_request")
 		return
 	}
 	u := s.userFrom(r.Context())
 	blob, err := crypto.DecodeBase64(req.VaultBlobB64)
 	if err != nil || len(blob) == 0 {
-		writeErr(w, http.StatusBadRequest, "vault blob non valido", "bad_blob")
+		writeErr(w, http.StatusBadRequest, "invalid vault blob", "bad_blob")
 		return
 	}
 	nonce, err := crypto.DecodeBase64(req.VaultNonceB64)
 	if err != nil || len(nonce) == 0 {
-		writeErr(w, http.StatusBadRequest, "nonce non valido", "bad_nonce")
+		writeErr(w, http.StatusBadRequest, "invalid nonce", "bad_nonce")
 		return
 	}
 	var wrapped, wrappedRecov []byte
 	if req.VaultKeyWrappedB64 != "" {
 		wrapped, err = crypto.DecodeBase64(req.VaultKeyWrappedB64)
 		if err != nil {
-			writeErr(w, http.StatusBadRequest, "vault_key avvolta non valida", "bad_wrapped_key")
+			writeErr(w, http.StatusBadRequest, "invalid wrapped vault_key", "bad_wrapped_key")
 			return
 		}
 	}
 	if req.VaultKeyWrappedRecovB64 != "" {
 		wrappedRecov, err = crypto.DecodeBase64(req.VaultKeyWrappedRecovB64)
 		if err != nil {
-			writeErr(w, http.StatusBadRequest, "vault_key recovery avvolta non valida", "bad_wrapped_recov")
+			writeErr(w, http.StatusBadRequest, "invalid wrapped recovery vault_key", "bad_wrapped_recov")
 			return
 		}
 	}
@@ -83,13 +83,13 @@ func (s *Server) handleVaultPut(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == store.ErrConflict {
 			writeJSON(w, http.StatusConflict, map[string]any{
-				"error":           "conflitto di revisione",
+				"error":           "revision conflict",
 				"code":            "revision_conflict",
 				"current_revision": u.VaultRevision,
 			})
 			return
 		}
-		writeErr(w, http.StatusInternalServerError, "errore interno", "internal")
+		writeErr(w, http.StatusInternalServerError, "internal error", "internal")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"vault_revision": newRev})
