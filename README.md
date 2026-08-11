@@ -1,66 +1,66 @@
 # PassOne
 
-Password manager **self-hostable** con crittografia **end-to-end** (server Go + app Flutter).
-Il server non conosce mai le password: salva solo hash (SHA-256 della chiave derivata) e blob
-criptati AES-256-GCM; nessun dato può essere decifrato lato server.
+Self-hostable password manager with **end-to-end encryption** (Go server + Flutter app).
+The server never sees your passwords: it only stores hashes (SHA-256 of the derived key) and
+AES-256-GCM encrypted blobs; no data can be decrypted server-side.
 
-## Setup veloce — server
+## Quick start — server
 
-Prerequisiti: Go 1.26+.
+Prerequisites: Go 1.26+.
 
 ```bash
 cd server
 
-# 1. Compila il binario singolo
+# 1. Build the single binary
 go build -o passone ./cmd/passone
 
-# 2. Genera la configurazione (crea config.yaml con un admin token casuale)
+# 2. Generate the configuration (creates config.yaml with a random admin token)
 ./passone config init
 
-# 3. Avvia il server (default: http://127.0.0.1:8321)
+# 3. Start the server (default: http://127.0.0.1:8321)
 ./passone serve
 ```
 
-Al primo avvio, se l'`admin_token` non è in `config.yaml`, viene generato e stampato: **salvalo**.
+On first start, if `admin_token` is not in `config.yaml`, one is generated and printed: **save it**.
 
-### Creare un utente
+### Creating a user
 
 ```bash
-# Crea l'utente (stato "pending") e stampa l'invite token monouso
+# Creates the user (status "pending") and prints the one-time invite token
 ./passone user create <username>
 
-# Oppure, se la registrazione diretta è abilitata (allow_registration: true),
-# l'utente può iscriversi direttamente dall'app.
+# Or, if direct registration is enabled (allow_registration: true),
+# users can sign up directly from the app.
 ```
 
-Altri comandi utili:
+Other useful commands:
 
 ```bash
 ./passone user list
 ./passone user disable <username>
 ./passone user reset-invite <username>
-./passone backup --out backup.json    # blob criptati + materiale auth
+./passone backup --out backup.json    # encrypted blobs + auth material
 ```
 
-### Web UI admin
+### Admin web UI
 
-Con la web UI abilitata (default), apri `http://<server>:8321/admin/` e inserisci l'**admin token**:
-qui puoi creare utenti e vedere gli invite token.
+With the web UI enabled (default), open `http://<server>:8321/admin/` and enter the **admin token**:
+here you can create users and view invite tokens.
 
-### Ascolto su rete locale / pubblico
+### Listening on the local network / publicly
 
-Per impostazione predefinita il server ascolta solo su `127.0.0.1`. Per esporlo, modifica
-`config.yaml` (o usa `--addr`):
+By default the server listens only on `127.0.0.1`. To expose it, edit `config.yaml`
+(or use `--addr`):
 
 ```yaml
 addr: "0.0.0.0:8321"
-allow_registration: false   # consigliato: gestisci gli utenti via invite
+allow_registration: false   # recommended: manage users via invite
 ```
 
-### HTTPS (consigliato)
+### HTTPS (recommended)
 
-Il server supporta TLS diretto (`tls_cert`/`tls_key` in config.yaml) oppure un reverse proxy.
-Con Caddy:
+The server supports direct TLS (`tls_cert`/`tls_key` in config.yaml) or a reverse proxy.
+With Caddy:
 
 ```
 example.com {
@@ -68,59 +68,55 @@ example.com {
 }
 ```
 
-Senza HTTPS il server logga un avviso: il trasporto non è cifrato ma i dati restano
-illeggibili (AEAD) a chi intercetta; restano esposti solo metadati (username, timestamps).
+Without HTTPS the server logs a warning: the transport is not encrypted, but the data stays
+unreadable (AEAD) to anyone who intercepts it; only metadata (username, timestamps) is exposed.
 
-## Setup veloce — app desktop (Linux)
+## Quick start — desktop app (Linux)
 
-Prerequisiti: Flutter SDK (vedi Fase 1).
+Prerequisites: Flutter SDK (see Phase 1).
 
 ```bash
 cd app
 flutter pub get
 
-# Build release
+# Release build
 flutter build linux --release
 
-# Esegui
+# Run
 ./build/linux/x64/release/bundle/passone_app
 ```
 
-### Primo accesso
+### First access
 
-1. Inserisci l'**URL del server** (es. `https://passone.example.com` o `http://192.168.1.10:8321`).
-2. Se l'utente esiste già (creato da admin): username + master password + **invite token**.
-   Se la registrazione diretta è attiva: basta username + master password.
-3. Attiva la **recovery key** (consigliato): ti verrà mostrata una sola volta, salvala.
-4. Il vault è pronto: aggiungi le prime voci con il pulsante **Nuova**.
+1. Enter the **server URL** (e.g. `https://passone.example.com` or `http://192.168.1.10:8321`).
+2. If the user already exists (created by an admin): username + master password + **invite token**.
+   If direct registration is active: just username + master password.
+3. Enable the **recovery key** (recommended): it is shown only once, save it.
+4. The vault is ready: add your first entries with the **New** button.
 
-Il vault si blocca automaticamente (1/2/5/10 minuti) e si sblocca con la master password,
-anche offline (cache locale).
+The vault locks automatically (1/2/5/10 minutes) and unlocks with the master password,
+even offline (local cache).
 
 ## Android
 
-La build APK richiede l'Android SDK. Con il toolchain installato:
+Building the APK requires the Android SDK. With the toolchain installed:
 
 ```bash
 cd app
 flutter build apk --release
 ```
 
-## Backup e recupero
+## Backup and recovery
 
-- `passone backup` esporta in un file JSON i blob criptati e il materiale di autenticazione:
-  conservalo su un supporto sicuro.
-- Per ripristinare, i dati vanno reinseriti nel database SQLite (il file `passone.db`) — in
-  futuro sarà disponibile un comando dedicato.
+- `passone backup` exports the encrypted blobs and the authentication material to a JSON file:
+  keep it on a safe medium.
+- To restore, the data must be re-inserted into the SQLite database (the `passone.db` file) — a
+  dedicated command will be available in the future.
 
-## Note di sicurezza
+## Security notes
 
-- La **recovery key** permette di reimpostare la password smarrita **solo se attivata**.
-  Senza di essa, la password dimenticata = vault azzerato (come Bitwarden).
-- Se attivata, la recovery key viene **bruciata dopo ogni uso** e ogni reset revoca tutte
-  le sessioni.
-- Il blocco automatico è client-side: protegge dal furto del dispositivo, non dal server.
-
-## Architettura e piano
-
-Dettagli in [PLAN.md](PLAN.md): modello di crittografia, API v1, CLI, web UI e stato avanzamento.
+- The **recovery key** lets you reset a forgotten password **only if it was enabled**.
+  Without it, a forgotten password = wiped vault (like Bitwarden).
+- If enabled, the recovery key is **burned after every use** and each reset revokes all
+  sessions.
+- Auto-lock is client-side: it protects against device theft, not against the server.

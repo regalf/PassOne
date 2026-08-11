@@ -9,6 +9,9 @@ server/test/passone
 server/test/*.db
 server/test/config.yaml
 
+# Docs
+PLAN.md
+
 # IDE
 .idea/
 *.iml
