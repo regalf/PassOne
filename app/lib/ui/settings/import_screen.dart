@@ -10,6 +10,10 @@ import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
 import 'password_dialog.dart';
 
+/// File format to use when importing. [auto] detects the format from the
+/// file name and content.
+enum ImportFormat { auto, passone, json, csv, bitwarden }
+
 class ImportScreen extends ConsumerStatefulWidget {
   const ImportScreen({super.key});
 
@@ -21,6 +25,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   bool _loading = false;
   String? _error;
   String? _info;
+  ImportFormat _format = ImportFormat.auto;
 
   Future<void> _pickAndImport() async {
     final file = await openFile(
@@ -41,15 +46,25 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     try {
       final content = await file.readAsString();
       final name = file.name.toLowerCase();
-      final passone =
-          name.endsWith('.passone') || PassoneFile.isPassoneEnvelope(content);
       final VaultData? imported;
-      if (passone) {
-        imported = await _importPassone(content);
-      } else {
-        imported = name.endsWith('.json')
-            ? _importJson(content)
-            : importCsv(content);
+      switch (_format) {
+        case ImportFormat.passone:
+          imported = await _importPassone(content);
+        case ImportFormat.json:
+          imported = _importJson(content);
+        case ImportFormat.csv:
+          imported = importCsv(content);
+        case ImportFormat.bitwarden:
+          imported = importBitwardenCsv(content);
+        case ImportFormat.auto:
+          final passone =
+              name.endsWith('.passone') ||
+              PassoneFile.isPassoneEnvelope(content);
+          imported = passone
+              ? await _importPassone(content)
+              : name.endsWith('.json')
+                  ? _importJson(content)
+                  : importCsv(content);
       }
       if (imported == null) return;
       final data = imported;
@@ -129,6 +144,33 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
                 Text(
                   context.l10n.importIntro,
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<ImportFormat>(
+                  initialValue: _format,
+                  decoration: InputDecoration(
+                    labelText: context.l10n.importFormatLabel,
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: [
+                    for (final f in ImportFormat.values)
+                      DropdownMenuItem(
+                        value: f,
+                        child: Text(switch (f) {
+                          ImportFormat.auto => context.l10n.importFormatAuto,
+                          ImportFormat.passone =>
+                            context.l10n.importFormatPassone,
+                          ImportFormat.json => context.l10n.importFormatJson,
+                          ImportFormat.csv => context.l10n.importFormatCsv,
+                          ImportFormat.bitwarden =>
+                            context.l10n.importFormatBitwarden,
+                        }),
+                      ),
+                  ],
+                  onChanged: _loading
+                      ? null
+                      : (v) =>
+                          setState(() => _format = v ?? ImportFormat.auto),
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 16),
@@ -249,4 +291,44 @@ String nameFromUrl(String url) {
   final label = host.split('.').first;
   if (label.isEmpty) return host;
   return label[0].toUpperCase() + label.substring(1);
+}
+
+/// Imports a Bitwarden CSV export.
+///
+/// Bitwarden exports a header like:
+/// `folder,favorite,type,name,notes,fields,reprompt,login_uri,
+/// login_username,login_password,login_totp`. Only `login` entries are
+/// imported; secure notes and cards are skipped. When the `name` column is
+/// missing the name is derived from the login URL.
+VaultData importBitwardenCsv(String content) {
+  final rows = parseCsv(content);
+  if (rows.isEmpty) return VaultData();
+  final headers = rows.first.map((h) => h.trim().toLowerCase()).toList();
+  String field(List<String> row, int i) =>
+      i >= 0 && i < row.length ? row[i].trim() : '';
+  final iName = headers.indexOf('name');
+  final iType = headers.indexOf('type');
+  final iUri = headers.indexOf('login_uri');
+  final iUsername = headers.indexOf('login_username');
+  final iPassword = headers.indexOf('login_password');
+  final iTotp = headers.indexOf('login_totp');
+  final iNotes = headers.indexOf('notes');
+  final entries = <VaultEntry>[];
+  for (final row in rows.skip(1)) {
+    if (row.every((f) => f.trim().isEmpty)) continue;
+    final type = field(row, iType);
+    if (type.isNotEmpty && type != 'login') continue;
+    final uri = field(row, iUri);
+    final name = field(row, iName);
+    final totp = field(row, iTotp);
+    entries.add(VaultEntry.create(
+      name: name.isNotEmpty ? name : nameFromUrl(uri),
+      url: uri,
+      username: field(row, iUsername),
+      password: field(row, iPassword),
+      notes: field(row, iNotes),
+      totpSecret: totp.isEmpty ? null : totp,
+    ));
+  }
+  return VaultData(entries: entries);
 }

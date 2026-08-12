@@ -658,7 +658,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get importIntro =>
-      'Choose a PassOne file (.passone), a JSON export or a CSV with columns: name,url,username,password,notes. Existing entries are merged and synced.';
+      'Choose a file format, then pick a PassOne (.passone), JSON or CSV file. Existing entries are merged and synced.';
+
+  @override
+  String get importFormatLabel => 'File format';
+
+  @override
+  String get importFormatAuto => 'Auto (recommended)';
+
+  @override
+  String get importFormatPassone => 'PassOne (encrypted)';
+
+  @override
+  String get importFormatJson => 'JSON';
+
+  @override
+  String get importFormatCsv => 'CSV';
+
+  @override
+  String get importFormatBitwarden => 'Bitwarden CSV';
 
   @override
   String get importPassoneTitle => 'Unlock import';

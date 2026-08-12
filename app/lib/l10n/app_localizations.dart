@@ -1313,8 +1313,44 @@ abstract class AppLocalizations {
   /// No description provided for @importIntro.
   ///
   /// In en, this message translates to:
-  /// **'Choose a PassOne file (.passone), a JSON export or a CSV with columns: name,url,username,password,notes. Existing entries are merged and synced.'**
+  /// **'Choose a file format, then pick a PassOne (.passone), JSON or CSV file. Existing entries are merged and synced.'**
   String get importIntro;
+
+  /// No description provided for @importFormatLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'File format'**
+  String get importFormatLabel;
+
+  /// No description provided for @importFormatAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto (recommended)'**
+  String get importFormatAuto;
+
+  /// No description provided for @importFormatPassone.
+  ///
+  /// In en, this message translates to:
+  /// **'PassOne (encrypted)'**
+  String get importFormatPassone;
+
+  /// No description provided for @importFormatJson.
+  ///
+  /// In en, this message translates to:
+  /// **'JSON'**
+  String get importFormatJson;
+
+  /// No description provided for @importFormatCsv.
+  ///
+  /// In en, this message translates to:
+  /// **'CSV'**
+  String get importFormatCsv;
+
+  /// No description provided for @importFormatBitwarden.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitwarden CSV'**
+  String get importFormatBitwarden;
 
   /// No description provided for @importPassoneTitle.
   ///

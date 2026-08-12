@@ -33,6 +33,9 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Test fixtures may contain real credentials
+test/fixtures/
+
 # Symbolication related
 app.*.symbols
 

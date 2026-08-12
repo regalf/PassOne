@@ -1,7 +1,55 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:passone_app/ui/settings/import_screen.dart';
 
 void main() {
+  test('Bitwarden export file populates entries', () {
+    final fixture = File('test/fixtures/bitwarden_export_20260812112049.csv');
+    final csv = fixture.existsSync()
+        ? fixture.readAsStringSync()
+        : 'folder,favorite,type,name,notes,fields,reprompt,'
+            'login_uri,login_username,login_password,login_totp\n'
+            ',,login,accounts.example.com,,,0,accounts.example.com,,pw1!,\n'
+            ',,login,web.fluxer.example,,,0,https://web.fluxer.example,'
+            'user@example.com,pw2!,\n'
+            ',,login,mpgh.example,,,0,https://www.mpgh.example,'
+            'RegakDragoon200,pw3!,\n';
+    final vault = importCsv(csv);
+    expect(vault.entries.length, 3);
+    for (final e in vault.entries) {
+      expect(e.name, isNotEmpty);
+      expect(e.url, isNotEmpty);
+      expect(e.password, isNotEmpty);
+    }
+    expect(vault.entries.first.username, isEmpty);
+    expect(vault.entries[1].username, isNotEmpty);
+    expect(vault.entries[2].username, isNotEmpty);
+  });
+
+  test('dedicated Bitwarden import skips notes and cards', () {
+    const csv = 'folder,favorite,type,name,notes,fields,reprompt,'
+        'login_uri,login_username,login_password,login_totp\n'
+        ',,login,GitHub,,,0,https://github.com,alice,secret,OTP\n'
+        ',,note,My note,hello world,,0,,,,,\n'
+        ',,card,Visa,,,0,,,,,\n';
+    final vault = importBitwardenCsv(csv);
+    expect(vault.entries.length, 1);
+    expect(vault.entries.first.name, 'GitHub');
+    expect(vault.entries.first.username, 'alice');
+    expect(vault.entries.first.password, 'secret');
+    expect(vault.entries.first.totpSecret, 'OTP');
+  });
+
+  test('dedicated Bitwarden import derives names from the URL', () {
+    const csv = 'folder,favorite,type,name,notes,fields,reprompt,'
+        'login_uri,login_username,login_password,login_totp\n'
+        ',,login,,,0,0,https://web.fluxer.app,user,pw,\n';
+    final vault = importBitwardenCsv(csv);
+    expect(vault.entries.length, 1);
+    expect(vault.entries.first.name, 'Web');
+  });
+
   test('Bitwarden CSV import populates username, password, uri and totp',
       () {
     const csv = 'folder,favorite,type,name,notes,fields,reprompt,'
