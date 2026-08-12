@@ -73,7 +73,7 @@ unreadable (AEAD) to anyone who intercepts it; only metadata (username, timestam
 
 ## Quick start — desktop app (Linux)
 
-Prerequisites: Flutter SDK (see Phase 1).
+Prerequisites: Flutter SDK.
 
 ```bash
 cd app
@@ -85,6 +85,8 @@ flutter build linux --release
 # Run
 ./build/linux/x64/release/bundle/passone_app
 ```
+
+Alternatively, use the build script below to build everything with one command.
 
 ### First access
 
@@ -105,6 +107,24 @@ Building the APK requires the Android SDK. With the toolchain installed:
 cd app
 flutter build apk --release
 ```
+
+## Build everything with one script
+
+`scripts/build.py` checks the toolchain (Go, Flutter, Dart, Java, cmake, ninja,
+clang, GTK3, Android SDK, appimagetool), reports what is present and what is
+missing, and then builds the server, the Linux release bundle, the Android APK
+and the Linux AppImage. Artifacts land in `server/dist/`.
+
+```bash
+python3 scripts/build.py --check-only      # only the environment report
+python3 scripts/build.py                   # full build pipeline
+python3 scripts/build.py --download-tools  # fetch appimagetool if missing
+```
+
+Flags: `--no-server`, `--no-linux`, `--no-apk`, `--no-appimage`.
+
+Requires Python 3 and the standard toolchain. On the first run it builds
+incrementally; a clean rebuild is done by deleting `app/build/` first.
 
 ## Backup and recovery
 
