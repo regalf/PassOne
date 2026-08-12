@@ -31,7 +31,7 @@ SERVER = ROOT / "server"
 DIST = SERVER / "dist"
 TOOLS = ROOT / "tools"
 
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 APPDIR_NAME = f"passone-appdir"
 APPIMAGE_URL = (
     "https://github.com/AppImage/appimagetool/releases/download/continuous/"
