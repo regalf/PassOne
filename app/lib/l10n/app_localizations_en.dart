@@ -603,10 +603,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get exportWarning =>
-      'Exported data is in plain text: store it in a safe place.';
+      'JSON and CSV are plain text; the PassOne file is encrypted with a password.';
 
   @override
-  String get jsonFull => 'JSON (full)';
+  String get exportFormatLabel => 'Format';
+
+  @override
+  String get exportPassone => 'PassOne (encrypted)';
+
+  @override
+  String get exportJson => 'JSON';
+
+  @override
+  String get exportCsv => 'CSV';
+
+  @override
+  String get exportPasswordTitle => 'Protect the export';
+
+  @override
+  String get exportPasswordPrompt =>
+      'Choose a password to encrypt this file. It will be required to import it.';
+
+  @override
+  String get exportPasswordLabel => 'Encryption password';
+
+  @override
+  String get exportPasswordConfirmLabel => 'Confirm password';
+
+  @override
+  String get exportPasswordRequired => 'Enter a password.';
 
   @override
   String exportSaved(Object path) {
@@ -620,20 +645,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get exportVault => 'Export vault';
 
   @override
-  String get exportSub => 'JSON or CSV, in plain text';
+  String get exportSub => 'JSON, CSV or encrypted PassOne file';
 
   @override
   String get importVault => 'Import vault';
 
   @override
-  String get importSub => 'From JSON or CSV file';
+  String get importSub => 'From JSON, CSV or encrypted PassOne file';
 
   @override
   String get importTitle => 'Import vault';
 
   @override
   String get importIntro =>
-      'Choose a JSON file (PassOne export) or CSV with columns: name,url,username,password,notes. Existing entries are merged.';
+      'Choose a PassOne file (.passone), a JSON export or a CSV with columns: name,url,username,password,notes. Existing entries are merged and synced.';
+
+  @override
+  String get importPassoneTitle => 'Unlock import';
+
+  @override
+  String get importPassonePrompt =>
+      'This file is encrypted. Enter the password used to create it.';
+
+  @override
+  String get importPassoneLabel => 'File password';
+
+  @override
+  String get importPassoneRequired => 'Enter the file password.';
+
+  @override
+  String get importWrongPassword => 'Wrong password or corrupted file.';
 
   @override
   String importFailed(Object error) {

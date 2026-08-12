@@ -1211,14 +1211,62 @@ abstract class AppLocalizations {
   /// No description provided for @exportWarning.
   ///
   /// In en, this message translates to:
-  /// **'Exported data is in plain text: store it in a safe place.'**
+  /// **'JSON and CSV are plain text; the PassOne file is encrypted with a password.'**
   String get exportWarning;
 
-  /// No description provided for @jsonFull.
+  /// No description provided for @exportFormatLabel.
   ///
   /// In en, this message translates to:
-  /// **'JSON (full)'**
-  String get jsonFull;
+  /// **'Format'**
+  String get exportFormatLabel;
+
+  /// No description provided for @exportPassone.
+  ///
+  /// In en, this message translates to:
+  /// **'PassOne (encrypted)'**
+  String get exportPassone;
+
+  /// No description provided for @exportJson.
+  ///
+  /// In en, this message translates to:
+  /// **'JSON'**
+  String get exportJson;
+
+  /// No description provided for @exportCsv.
+  ///
+  /// In en, this message translates to:
+  /// **'CSV'**
+  String get exportCsv;
+
+  /// No description provided for @exportPasswordTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Protect the export'**
+  String get exportPasswordTitle;
+
+  /// No description provided for @exportPasswordPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a password to encrypt this file. It will be required to import it.'**
+  String get exportPasswordPrompt;
+
+  /// No description provided for @exportPasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Encryption password'**
+  String get exportPasswordLabel;
+
+  /// No description provided for @exportPasswordConfirmLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get exportPasswordConfirmLabel;
+
+  /// No description provided for @exportPasswordRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a password.'**
+  String get exportPasswordRequired;
 
   /// No description provided for @exportSaved.
   ///
@@ -1241,7 +1289,7 @@ abstract class AppLocalizations {
   /// No description provided for @exportSub.
   ///
   /// In en, this message translates to:
-  /// **'JSON or CSV, in plain text'**
+  /// **'JSON, CSV or encrypted PassOne file'**
   String get exportSub;
 
   /// No description provided for @importVault.
@@ -1253,7 +1301,7 @@ abstract class AppLocalizations {
   /// No description provided for @importSub.
   ///
   /// In en, this message translates to:
-  /// **'From JSON or CSV file'**
+  /// **'From JSON, CSV or encrypted PassOne file'**
   String get importSub;
 
   /// No description provided for @importTitle.
@@ -1265,8 +1313,38 @@ abstract class AppLocalizations {
   /// No description provided for @importIntro.
   ///
   /// In en, this message translates to:
-  /// **'Choose a JSON file (PassOne export) or CSV with columns: name,url,username,password,notes. Existing entries are merged.'**
+  /// **'Choose a PassOne file (.passone), a JSON export or a CSV with columns: name,url,username,password,notes. Existing entries are merged and synced.'**
   String get importIntro;
+
+  /// No description provided for @importPassoneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlock import'**
+  String get importPassoneTitle;
+
+  /// No description provided for @importPassonePrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'This file is encrypted. Enter the password used to create it.'**
+  String get importPassonePrompt;
+
+  /// No description provided for @importPassoneLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'File password'**
+  String get importPassoneLabel;
+
+  /// No description provided for @importPassoneRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the file password.'**
+  String get importPassoneRequired;
+
+  /// No description provided for @importWrongPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrong password or corrupted file.'**
+  String get importWrongPassword;
 
   /// No description provided for @importFailed.
   ///

@@ -6,50 +6,117 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../crypto/models.dart';
+import '../../crypto/passone_file.dart';
 import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
 import 'import_screen.dart';
+import 'password_dialog.dart';
 
-/// Exports the vault in PassOne (JSON) or CSV format.
+/// Available export formats.
+enum ExportFormat {
+  passone('passone', 'passone'),
+  json('json', 'json'),
+  csv('csv', 'csv');
+
+  final String ext;
+  final String label;
+  const ExportFormat(this.ext, this.label);
+}
+
+/// Exports the vault as PassOne (encrypted), JSON or CSV.
 Future<void> exportVault(BuildContext context, VaultData vault) async {
   final l10n = context.l10n;
-  final format = await showDialog<String>(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: Text(ctx.l10n.exportTitle),
-      content: Text(ctx.l10n.exportWarning),
-      actions: [
-        TextButton(
-            onPressed: () => Navigator.of(ctx).pop('json'),
-            child: Text(ctx.l10n.jsonFull)),
-        TextButton(
-            onPressed: () => Navigator.of(ctx).pop('csv'),
-            child: const Text('CSV')),
-        TextButton(
-            onPressed: () => Navigator.of(ctx).pop(), child: Text(ctx.l10n.cancel)),
-      ],
-    ),
-  );
+  final format = await _chooseFormat(context);
   if (format == null || !context.mounted) return;
 
-  final ext = format == 'json' ? 'json' : 'csv';
+  String? password;
+  if (format == ExportFormat.passone) {
+    password = await promptPassword(
+      context,
+      title: l10n.exportPasswordTitle,
+      message: l10n.exportPasswordPrompt,
+      label: l10n.exportPasswordLabel,
+      confirmLabel: l10n.exportPasswordConfirmLabel,
+      requiredError: l10n.exportPasswordRequired,
+      mismatchError: l10n.passwordsDiffer,
+      requireConfirmation: true,
+    );
+    if (password == null || !context.mounted) return;
+  }
+
   final destination = await getSaveLocation(
-    suggestedName: 'passone-export-$ext',
+    suggestedName: 'passone-export-${format.ext}',
     acceptedTypeGroups: [
-      XTypeGroup(label: ext.toUpperCase(), extensions: [ext]),
+      if (format == ExportFormat.passone)
+        const XTypeGroup(
+            label: 'PassOne',
+            extensions: ['passone'],
+            mimeTypes: ['application/octet-stream'])
+      else
+        XTypeGroup(label: format.label, extensions: [format.ext]),
     ],
   );
   if (destination == null) return;
 
-  final String content = format == 'json'
-      ? const JsonEncoder.withIndent('  ').convert(vault.toJson())
-      : vaultToCsv(vault);
+  final String content = switch (format) {
+    ExportFormat.passone =>
+      await PassoneFile.encrypt(vault, password!),
+    ExportFormat.json =>
+      const JsonEncoder.withIndent('  ').convert(vault.toJson()),
+    ExportFormat.csv => vaultToCsv(vault),
+  };
   final file = File(destination.path);
   await file.writeAsString(content);
   if (context.mounted) {
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(l10n.exportSaved(file.path))));
   }
+}
+
+Future<ExportFormat?> _chooseFormat(BuildContext context) {
+  final l10n = context.l10n;
+  var selected = ExportFormat.passone;
+  return showDialog<ExportFormat>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: Text(l10n.exportTitle),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(l10n.exportWarning, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<ExportFormat>(
+              initialValue: selected,
+              decoration: InputDecoration(labelText: l10n.exportFormatLabel),
+              items: [
+                for (final f in ExportFormat.values)
+                  DropdownMenuItem(
+                    value: f,
+                    child: Text(switch (f) {
+                      ExportFormat.passone => l10n.exportPassone,
+                      ExportFormat.json => l10n.exportJson,
+                      ExportFormat.csv => l10n.exportCsv,
+                    }),
+                  ),
+              ],
+              onChanged: (v) =>
+                  setState(() => selected = v ?? ExportFormat.passone),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(l10n.cancel)),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(selected),
+            child: Text(l10n.connectButton),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Converts the vault to CSV (name,url,username,password,notes).

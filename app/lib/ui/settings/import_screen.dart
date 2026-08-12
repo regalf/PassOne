@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../crypto/models.dart';
+import '../../crypto/passone_file.dart';
 import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
+import 'password_dialog.dart';
 
 class ImportScreen extends ConsumerStatefulWidget {
   const ImportScreen({super.key});
@@ -23,6 +25,10 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
   Future<void> _pickAndImport() async {
     final file = await openFile(
       acceptedTypeGroups: const [
+        XTypeGroup(
+            label: 'PassOne',
+            extensions: ['passone'],
+            mimeTypes: ['application/octet-stream']),
         XTypeGroup(label: 'Vault', extensions: ['json', 'csv']),
       ],
     );
@@ -35,19 +41,43 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     try {
       final content = await file.readAsString();
       final name = file.name.toLowerCase();
-      final imported = name.endsWith('.json')
-          ? _importJson(content)
-          : _importCsv(content);
+      final VaultData imported;
+      if (name.endsWith('.passone')) {
+        imported = await _importPassone(content);
+      } else {
+        imported = name.endsWith('.json')
+            ? _importJson(content)
+            : _importCsv(content);
+      }
       final current = ref.read(sessionControllerProvider).vault ?? VaultData();
       final merged = _merge(current, imported);
       await ref.read(sessionControllerProvider.notifier).saveVault(merged);
       setState(() => _info = context.l10n
           .importedCount(imported.entries.length, merged.entries.length));
+    } on PassoneDecryptException {
+      setState(() => _error = context.l10n.importWrongPassword);
     } catch (e) {
       setState(() => _error = context.l10n.importFailed(e));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<VaultData> _importPassone(String content) async {
+    final l10n = context.l10n;
+    final password = await promptPassword(
+      context,
+      title: l10n.importPassoneTitle,
+      message: l10n.importPassonePrompt,
+      label: l10n.importPassoneLabel,
+      confirmLabel: l10n.importPassoneLabel,
+      requiredError: l10n.importPassoneRequired,
+      mismatchError: l10n.importWrongPassword,
+    );
+    if (password == null) {
+      throw PassoneDecryptException();
+    }
+    return PassoneFile.decrypt(content, password);
   }
 
   VaultData _importJson(String content) {

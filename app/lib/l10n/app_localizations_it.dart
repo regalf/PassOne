@@ -604,10 +604,35 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get exportWarning =>
-      'I dati esportati sono in chiaro: conservali in un luogo sicuro.';
+      'JSON e CSV sono in chiaro; il file PassOne è criptato con una password.';
 
   @override
-  String get jsonFull => 'JSON (completo)';
+  String get exportFormatLabel => 'Formato';
+
+  @override
+  String get exportPassone => 'PassOne (criptato)';
+
+  @override
+  String get exportJson => 'JSON';
+
+  @override
+  String get exportCsv => 'CSV';
+
+  @override
+  String get exportPasswordTitle => 'Proteggi l\'esportazione';
+
+  @override
+  String get exportPasswordPrompt =>
+      'Scegli una password per criptare questo file. Servirà per importarlo.';
+
+  @override
+  String get exportPasswordLabel => 'Password di criptazione';
+
+  @override
+  String get exportPasswordConfirmLabel => 'Conferma password';
+
+  @override
+  String get exportPasswordRequired => 'Inserisci una password.';
 
   @override
   String exportSaved(Object path) {
@@ -621,20 +646,36 @@ class AppLocalizationsIt extends AppLocalizations {
   String get exportVault => 'Esporta vault';
 
   @override
-  String get exportSub => 'JSON o CSV, in chiaro';
+  String get exportSub => 'JSON, CSV o file PassOne criptato';
 
   @override
   String get importVault => 'Importa vault';
 
   @override
-  String get importSub => 'Da file JSON o CSV';
+  String get importSub => 'Da file JSON, CSV o PassOne criptato';
 
   @override
   String get importTitle => 'Importa vault';
 
   @override
   String get importIntro =>
-      'Scegli un file JSON (esportazione PassOne) o CSV con colonne: name,url,username,password,notes. Le voci esistenti vengono unite.';
+      'Scegli un file PassOne (.passone), un export JSON o un CSV con colonne: name,url,username,password,notes. Le voci esistenti vengono unite e sincronizzate.';
+
+  @override
+  String get importPassoneTitle => 'Sblocca importazione';
+
+  @override
+  String get importPassonePrompt =>
+      'Questo file è criptato. Inserisci la password usata per crearlo.';
+
+  @override
+  String get importPassoneLabel => 'Password del file';
+
+  @override
+  String get importPassoneRequired => 'Inserisci la password del file.';
+
+  @override
+  String get importWrongPassword => 'Password errata o file danneggiato.';
 
   @override
   String importFailed(Object error) {
