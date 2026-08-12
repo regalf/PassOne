@@ -15,6 +15,7 @@ REPORT.md
 
 # Release artifacts
 dist/
+tools/
 
 # IDE
 .idea/
