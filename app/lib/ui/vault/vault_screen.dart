@@ -60,8 +60,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
         e.url.toLowerCase().contains(q);
   }
 
-  List<VaultEntry> get _passwordEntries =>
-      _vault.entries.where((e) => !e.isTotp && _matchesQuery(e)).toList();
+  List<VaultEntry> get _passwordEntries => _vault.entries
+      .where((e) => !e.isTotp && !e.isSsh && _matchesQuery(e))
+      .toList();
 
   List<VaultEntry> get _totpEntries =>
       _vault.entries.where((e) => e.isTotp && _matchesQuery(e)).toList();

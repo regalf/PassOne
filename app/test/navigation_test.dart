@@ -414,5 +414,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('work-key'), findsOneWidget);
     expect(find.text('git @ github.com'), findsOneWidget);
+    await tester.tap(find.text('Passwords'));
+    await tester.pump();
+    expect(find.text('work-key'), findsNothing,
+        reason: 'SSH keys must not appear in the Passwords tab');
   });
 }
