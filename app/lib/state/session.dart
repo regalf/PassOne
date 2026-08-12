@@ -122,6 +122,10 @@ class SessionController extends StateNotifier<SessionState> {
     state = state.copyWith(settings: settings);
   }
 
+  /// Checks that the server responds on GET /health. Overridable in tests.
+  Future<void> checkServerReachability(String url) =>
+      PassOneClient(baseUrl: url).healthCheck();
+
   Future<void> setLockTimeout(LockTimeout timeout) async {
     final settings = state.settings.copyWithLockTimeout(timeout);
     await _repo.save(settings);

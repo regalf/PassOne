@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/client.dart';
 import '../../l10n/l10n.dart';
-import '../../platform/secure_window.dart';
 import '../../state/providers.dart';
 import '../../state/session.dart';
 
@@ -86,10 +85,10 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
   }
 
   Future<void> _showNewRecoveryKey(String key) async {
-    await SecureWindow.guarded(() => showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (ctx) => AlertDialog(
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
             title: Text(ctx.l10n.newRecoveryKeyTitle),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -119,7 +118,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
               ),
             ],
           ),
-        ));
+    );
   }
 
   @override

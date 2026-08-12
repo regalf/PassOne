@@ -39,6 +39,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get invalidServerUrl => 'Enter a valid server address.';
 
   @override
+  String get serverUnreachable =>
+      'Could not reach the server. Check the address and your connection.';
+
+  @override
   String get username => 'Username';
 
   @override

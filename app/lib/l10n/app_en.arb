@@ -11,6 +11,7 @@
   "connectButton": "Continue",
   "changeServer": "Change server",
   "invalidServerUrl": "Enter a valid server address.",
+  "serverUnreachable": "Could not reach the server. Check the address and your connection.",
   "username": "Username",
   "password": "Password",
   "tagline": "End-to-end password manager",

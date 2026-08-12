@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:passone_app/api/client.dart';
@@ -85,6 +86,8 @@ class _FakeController extends SessionController {
     state = const SessionState();
   }
   @override
+  Future<void> checkServerReachability(String url) async {}
+  @override
   Future<void> logoutAll() async {
     state = const SessionState();
   }
@@ -162,8 +165,18 @@ class _FakeVaultController extends SessionController {
   @override
   void touch() {}
   @override
+  Future<void> checkServerReachability(String url) async {}
+  @override
   Future<void> saveVault(VaultData vault) async {
     state = state.copyWith(vault: vault);
+  }
+}
+
+/// Like [_FakeController] but the server is never reachable.
+class _UnreachableController extends _FakeController {
+  @override
+  Future<void> checkServerReachability(String url) async {
+    throw http.ClientException('connection refused');
   }
 }
 
@@ -220,6 +233,22 @@ void main() {
     expect(find.text('Save your recovery key'), findsNothing);
     expect(find.text('Create account'), findsNothing);
     expect(find.widgetWithText(FloatingActionButton, 'New'), findsOneWidget);
+  });
+  testWidgets('an unreachable server shows an error and stays on the '
+      'server step', (tester) async {
+    final c = _UnreachableController();
+    await tester.pumpWidget(_app(c));
+    await tester.pumpAndSettle();
+    await _fill(tester, 0, 'https://unreachable.test');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+          'Could not reach the server. Check the address and your connection.'),
+      findsOneWidget,
+    );
+    expect(find.text('Sign in'), findsNothing,
+        reason: 'the flow must not advance to the login step');
   });
   testWidgets('logout returns to the login screen', (tester) async {
     final c = _FakeController();

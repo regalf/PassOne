@@ -158,6 +158,12 @@ abstract class AppLocalizations {
   /// **'Enter a valid server address.'**
   String get invalidServerUrl;
 
+  /// No description provided for @serverUnreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach the server. Check the address and your connection.'**
+  String get serverUnreachable;
+
   /// No description provided for @username.
   ///
   /// In en, this message translates to:

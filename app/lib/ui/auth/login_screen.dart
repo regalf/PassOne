@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 
 import '../../api/client.dart';
 import '../../l10n/l10n.dart';
@@ -71,12 +74,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _error = null;
     });
     try {
+      await ref
+          .read(sessionControllerProvider.notifier)
+          .checkServerReachability(server);
       await ref.read(sessionControllerProvider.notifier).setServerUrl(server);
       if (mounted) setState(() => _step = 1);
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
+    } on http.ClientException {
+      if (mounted) setState(() => _error = context.l10n.serverUnreachable);
+    } on TimeoutException {
+      if (mounted) setState(() => _error = context.l10n.serverUnreachable);
     } catch (e) {
-      if (mounted) setState(() => _error = context.l10n.unexpectedError(e));
+      if (mounted) setState(() => _error = context.l10n.serverUnreachable);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
