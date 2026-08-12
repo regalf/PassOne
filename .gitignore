@@ -7,7 +7,12 @@ server/webui/
 # Server test artifacts
 server/test/passone
 server/test/*.db
+server/test/*.db-shm
+server/test/*.db-wal
 server/test/config.yaml
+
+# Flutter native build artifacts
+.cxx/
 
 # Docs
 PLAN.md
