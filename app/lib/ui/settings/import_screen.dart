@@ -49,7 +49,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       } else {
         imported = name.endsWith('.json')
             ? _importJson(content)
-            : _importCsv(content);
+            : importCsv(content);
       }
       if (imported == null) return;
       final data = imported;
@@ -96,64 +96,6 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       );
     }
     throw const FormatException('Unrecognized JSON format');
-  }  VaultData _importCsv(String content) {
-    final rows = _parseCsv(content);
-    if (rows.isEmpty) return VaultData();
-    final headers = rows.first;
-    final entries = <VaultEntry>[];
-    for (final row in rows.skip(1)) {
-      if (row.length < headers.length) continue;
-      final m = <String, String>{};
-      for (var i = 0; i < headers.length; i++) {
-        m[headers[i].toLowerCase()] = row[i];
-      }
-      entries.add(VaultEntry.create(
-        name: m['name'] ?? '',
-        url: m['url'] ?? '',
-        username: m['username'] ?? '',
-        password: m['password'] ?? '',
-        notes: m['notes'] ?? '',
-      ));
-    }
-    return VaultData(entries: entries);
-  }
-
-  List<List<String>> _parseCsv(String content) {
-    final rows = <List<String>>[];
-    var cur = <String>[];
-    var field = StringBuffer();
-    var inQuotes = false;
-    for (var i = 0; i < content.length; i++) {
-      final c = content[i];
-      if (inQuotes) {
-        if (c == '"') {
-          if (i + 1 < content.length && content[i + 1] == '"') {
-            field.write('"');
-            i++;
-          } else {
-            inQuotes = false;
-          }
-        } else {
-          field.write(c);
-        }
-      } else if (c == '"') {
-        inQuotes = true;
-      } else if (c == ',') {
-        cur.add(field.toString());
-        field = StringBuffer();
-      } else if (c == '\n' || c == '\r') {
-        if (c == '\r' && i + 1 < content.length && content[i + 1] == '\n') i++;
-        cur.add(field.toString());
-        field = StringBuffer();
-        if (cur.any((f) => f.isNotEmpty)) rows.add(cur);
-        cur = [];
-      } else {
-        field.write(c);
-      }
-    }
-    cur.add(field.toString());
-    if (cur.any((f) => f.isNotEmpty)) rows.add(cur);
-    return rows;
   }
 
   VaultData _merge(VaultData current, VaultData imported) {
@@ -217,4 +159,94 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       ),
     );
   }
+}
+
+/// Parses a CSV string into rows of fields (handles quoted fields, escaped
+/// quotes and CRLF line endings).
+List<List<String>> parseCsv(String content) {
+  final rows = <List<String>>[];
+  var cur = <String>[];
+  var field = StringBuffer();
+  var inQuotes = false;
+  for (var i = 0; i < content.length; i++) {
+    final c = content[i];
+    if (inQuotes) {
+      if (c == '"') {
+        if (i + 1 < content.length && content[i + 1] == '"') {
+          field.write('"');
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field.write(c);
+      }
+    } else if (c == '"') {
+      inQuotes = true;
+    } else if (c == ',') {
+      cur.add(field.toString());
+      field = StringBuffer();
+    } else if (c == '\n' || c == '\r') {
+      if (c == '\r' && i + 1 < content.length && content[i + 1] == '\n') i++;
+      cur.add(field.toString());
+      field = StringBuffer();
+      if (cur.any((f) => f.isNotEmpty)) rows.add(cur);
+      cur = [];
+    } else {
+      field.write(c);
+    }
+  }
+  cur.add(field.toString());
+  if (cur.any((f) => f.isNotEmpty)) rows.add(cur);
+  return rows;
+}
+
+/// Imports a CSV file into a [VaultData].
+///
+/// Supports plain exports (`name,url,username,password,notes`), Bitwarden
+/// exports (`name,notes,...,login_uri,login_username,login_password,
+/// login_totp`) and Firefox exports (`url,username,password,...`, which has
+/// no `name` column, so the entry name is derived from the URL).
+VaultData importCsv(String content) {
+  final rows = parseCsv(content);
+  if (rows.isEmpty) return VaultData();
+  final headers = rows.first;
+  final entries = <VaultEntry>[];
+  for (final row in rows.skip(1)) {
+    if (row.length < headers.length) continue;
+    final m = <String, String>{};
+    for (var i = 0; i < headers.length; i++) {
+      m[headers[i].trim().toLowerCase()] = row[i];
+    }
+    final totp = (m['login_totp'] ?? m['totp'] ?? '').trim();
+    final url = m['url'] ?? m['login_uri'] ?? '';
+    final name = m['name'] ?? '';
+    entries.add(VaultEntry.create(
+      name: name.isNotEmpty ? name : nameFromUrl(url),
+      url: url,
+      username: m['username'] ?? m['login_username'] ?? '',
+      password: m['password'] ?? m['login_password'] ?? '',
+      notes: m['notes'] ?? '',
+      totpSecret: totp.isEmpty ? null : totp,
+    ));
+  }
+  return VaultData(entries: entries);
+}
+
+/// Derives a readable entry name from a URL host, e.g.
+/// `https://github.com` -> `GitHub`. Returns an empty string for empty or
+/// invalid URLs.
+String nameFromUrl(String url) {
+  final trimmed = url.trim();
+  if (trimmed.isEmpty) return '';
+  var host = Uri.tryParse(trimmed)?.host ?? '';
+  if (host.isEmpty && trimmed.contains('.')) {
+    final withoutScheme =
+        trimmed.replaceFirst(RegExp(r'^[a-zA-Z][a-zA-Z0-9+.-]*://'), '');
+    host = withoutScheme.split('/').first;
+  }
+  if (host.startsWith('www.')) host = host.substring(4);
+  final label = host.split('.').first;
+  if (label.isEmpty) return host;
+  return label[0].toUpperCase() + label.substring(1);
 }
