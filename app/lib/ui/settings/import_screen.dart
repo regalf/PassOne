@@ -41,19 +41,23 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     try {
       final content = await file.readAsString();
       final name = file.name.toLowerCase();
-      final VaultData imported;
-      if (name.endsWith('.passone')) {
+      final passone =
+          name.endsWith('.passone') || PassoneFile.isPassoneEnvelope(content);
+      final VaultData? imported;
+      if (passone) {
         imported = await _importPassone(content);
       } else {
         imported = name.endsWith('.json')
             ? _importJson(content)
             : _importCsv(content);
       }
+      if (imported == null) return;
+      final data = imported;
       final current = ref.read(sessionControllerProvider).vault ?? VaultData();
-      final merged = _merge(current, imported);
+      final merged = _merge(current, data);
       await ref.read(sessionControllerProvider.notifier).saveVault(merged);
       setState(() => _info = context.l10n
-          .importedCount(imported.entries.length, merged.entries.length));
+          .importedCount(data.entries.length, merged.entries.length));
     } on PassoneDecryptException {
       setState(() => _error = context.l10n.importWrongPassword);
     } catch (e) {
@@ -63,7 +67,8 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
     }
   }
 
-  Future<VaultData> _importPassone(String content) async {
+  /// Returns null when the user cancels the password prompt.
+  Future<VaultData?> _importPassone(String content) async {
     final l10n = context.l10n;
     final password = await promptPassword(
       context,
@@ -74,9 +79,7 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
       requiredError: l10n.importPassoneRequired,
       mismatchError: l10n.importWrongPassword,
     );
-    if (password == null) {
-      throw PassoneDecryptException();
-    }
+    if (password == null) return null;
     return PassoneFile.decrypt(content, password);
   }
 

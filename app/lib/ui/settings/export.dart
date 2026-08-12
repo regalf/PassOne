@@ -1,13 +1,12 @@
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../crypto/models.dart';
 import '../../crypto/passone_file.dart';
 import '../../l10n/l10n.dart';
+import '../../platform/file_save.dart';
 import '../../state/providers.dart';
 import 'import_screen.dart';
 import 'password_dialog.dart';
@@ -44,33 +43,28 @@ Future<void> exportVault(BuildContext context, VaultData vault) async {
     if (password == null || !context.mounted) return;
   }
 
-  final destination = await getSaveLocation(
-    suggestedName: 'passone-export-${format.ext}',
-    acceptedTypeGroups: [
-      if (format == ExportFormat.passone)
-        const XTypeGroup(
-            label: 'PassOne',
-            extensions: ['passone'],
-            mimeTypes: ['application/octet-stream'])
-      else
-        XTypeGroup(label: format.label, extensions: [format.ext]),
-    ],
-  );
-  if (destination == null) return;
-
   final String content = switch (format) {
-    ExportFormat.passone =>
-      await PassoneFile.encrypt(vault, password!),
+    ExportFormat.passone => await PassoneFile.encrypt(vault, password!),
     ExportFormat.json =>
       const JsonEncoder.withIndent('  ').convert(vault.toJson()),
     ExportFormat.csv => vaultToCsv(vault),
   };
-  final file = File(destination.path);
-  await file.writeAsString(content);
-  if (context.mounted) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(l10n.exportSaved(file.path))));
-  }
+  if (!context.mounted) return;
+
+  final mimeType = switch (format) {
+    ExportFormat.passone => 'application/octet-stream',
+    ExportFormat.json => 'application/json',
+    ExportFormat.csv => 'text/csv',
+  };
+  final path = await saveFileWithDialog(
+    suggestedName: 'passone-export.${format.ext}',
+    mimeType: mimeType,
+    content: content,
+    extension: format.ext,
+  );
+  if (path == null || !context.mounted) return;
+  ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(l10n.exportSaved(path))));
 }
 
 Future<ExportFormat?> _chooseFormat(BuildContext context) {

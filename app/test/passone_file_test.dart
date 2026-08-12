@@ -75,4 +75,19 @@ void main() {
       throwsA(isA<PassoneDecryptException>()),
     );
   });
+
+  test('isPassoneEnvelope detects the envelope regardless of the file name',
+      () async {
+    final envelope = await PassoneFile.encrypt(_sampleVault(), 'pw');
+    expect(PassoneFile.isPassoneEnvelope(envelope), isTrue);
+  });
+
+  test('isPassoneEnvelope rejects plain JSON, CSV and garbage', () async {
+    expect(PassoneFile.isPassoneEnvelope(
+            '{"version":1,"entries":[{"name":"x"}]}'),
+        isFalse);
+    expect(PassoneFile.isPassoneEnvelope('name,url\nfoo,bar'), isFalse);
+    expect(PassoneFile.isPassoneEnvelope('not json at all'), isFalse);
+    expect(PassoneFile.isPassoneEnvelope(''), isFalse);
+  });
 }

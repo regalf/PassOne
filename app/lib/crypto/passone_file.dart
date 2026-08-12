@@ -39,20 +39,27 @@ class PassoneFile {
     });
   }
 
+  /// Returns true when [content] looks like a PassOne envelope (regardless of
+  /// the file name), so callers can decide to ask for the password.
+  static bool isPassoneEnvelope(String content) {
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(content);
+    } on FormatException {
+      return false;
+    }
+    return decoded is Map<String, dynamic> && decoded['format'] == format;
+  }
+
   /// Decrypts a [content] envelope with [password].
   ///
   /// Throws [PassoneDecryptException] on wrong password, corrupted data or
   /// unsupported format/version.
   static Future<VaultData> decrypt(String content, String password) async {
-    final Object? decoded;
-    try {
-      decoded = jsonDecode(content);
-    } on FormatException {
+    if (!isPassoneEnvelope(content)) {
       throw PassoneDecryptException();
     }
-    if (decoded is! Map<String, dynamic> || decoded['format'] != format) {
-      throw PassoneDecryptException();
-    }
+    final decoded = jsonDecode(content) as Map<String, dynamic>;
     if (decoded['version'] != version) {
       throw PassoneDecryptException();
     }
