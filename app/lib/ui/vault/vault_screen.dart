@@ -36,6 +36,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
   Timer? _ticker;
   Map<String, String> _codes = {};
   int _secondsLeft = 30;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -77,30 +78,30 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
           .toList();
 
   Future<void> _refreshTotp() async {
-    if (!mounted || _tab != 1) return;
-    final entries = _allTotpEntries;
-    final now = DateTime.now();
-    final left = totpSecondsLeft(now);
-    if (entries.isEmpty) {
-      if (_codes.isNotEmpty || _secondsLeft != left) {
-        setState(() {
-          _codes = {};
-          _secondsLeft = left;
-        });
+    if (!mounted || _tab != 1 || _refreshing) return;
+    _refreshing = true;
+    try {
+      final entries = _allTotpEntries;
+      final now = DateTime.now();
+      final left = totpSecondsLeft(now);
+      final codes = <String, String>{};
+      for (final e in entries) {
+        final s = e.totpSecret;
+        if (s == null) continue;
+        try {
+          codes[e.id] = await generateTotp(s, time: now);
+        } catch (_) {
+          // Invalid secret: skip this code, keep the countdown running.
+        }
       }
-      return;
+      if (!mounted) return;
+      setState(() {
+        _codes = codes;
+        _secondsLeft = left;
+      });
+    } finally {
+      _refreshing = false;
     }
-    final codes = <String, String>{};
-    for (final e in entries) {
-      final s = e.totpSecret;
-      if (s == null) continue;
-      codes[e.id] = await generateTotp(s, time: now);
-    }
-    if (!mounted) return;
-    setState(() {
-      _codes = codes;
-      _secondsLeft = left;
-    });
   }
 
   Future<void> _scanQr() async {

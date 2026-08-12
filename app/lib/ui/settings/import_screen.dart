@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../crypto/models.dart';
 import '../../crypto/passone_file.dart';
+import '../../crypto/totp.dart';
 import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
 import 'password_dialog.dart';
@@ -260,7 +261,7 @@ VaultData importCsv(String content) {
     for (var i = 0; i < headers.length; i++) {
       m[headers[i].trim().toLowerCase()] = row[i];
     }
-    final totp = (m['login_totp'] ?? m['totp'] ?? '').trim();
+    final totp = normalizeTotpSecret(m['login_totp'] ?? m['totp'] ?? '');
     final url = m['url'] ?? m['login_uri'] ?? '';
     final name = m['name'] ?? '';
     entries.add(VaultEntry.create(
@@ -269,7 +270,7 @@ VaultData importCsv(String content) {
       username: m['username'] ?? m['login_username'] ?? '',
       password: m['password'] ?? m['login_password'] ?? '',
       notes: m['notes'] ?? '',
-      totpSecret: totp.isEmpty ? null : totp,
+      totpSecret: totp,
     ));
   }
   return VaultData(entries: entries);
@@ -320,14 +321,14 @@ VaultData importBitwardenCsv(String content) {
     if (type.isNotEmpty && type != 'login') continue;
     final uri = field(row, iUri);
     final name = field(row, iName);
-    final totp = field(row, iTotp);
+    final totp = normalizeTotpSecret(field(row, iTotp));
     entries.add(VaultEntry.create(
       name: name.isNotEmpty ? name : nameFromUrl(uri),
       url: uri,
       username: field(row, iUsername),
       password: field(row, iPassword),
       notes: field(row, iNotes),
-      totpSecret: totp.isEmpty ? null : totp,
+      totpSecret: totp,
     ));
   }
   return VaultData(entries: entries);

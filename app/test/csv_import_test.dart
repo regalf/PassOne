@@ -50,6 +50,26 @@ void main() {
     expect(vault.entries.first.name, 'Web');
   });
 
+  test('Bitwarden TOTP secrets are normalized on import', () {
+    const csv = 'folder,favorite,type,name,notes,fields,reprompt,'
+        'login_uri,login_username,login_password,login_totp\n'
+        ',,login,GitHub,,,0,https://github.com,alice,secret,'
+        'otpauth://totp/GitHub:alice?secret=jbswy3dpehpk3pxp&issuer=GitHub\n';
+    final vault = importBitwardenCsv(csv);
+    expect(vault.entries.length, 1);
+    expect(vault.entries.first.totpSecret, 'JBSWY3DPEHPK3PXP');
+  });
+
+  test('invalid TOTP secrets do not break the import', () {
+    const csv = 'folder,favorite,type,name,notes,fields,reprompt,'
+        'login_uri,login_username,login_password,login_totp\n'
+        ',,login,GitHub,,,0,https://github.com,alice,secret,NOT_BASE32!\n';
+    final vault = importBitwardenCsv(csv);
+    expect(vault.entries.length, 1);
+    expect(vault.entries.first.name, 'GitHub');
+    expect(vault.entries.first.totpSecret, isNull);
+  });
+
   test('Bitwarden CSV import populates username, password, uri and totp',
       () {
     const csv = 'folder,favorite,type,name,notes,fields,reprompt,'
