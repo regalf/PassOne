@@ -17,6 +17,33 @@ type ctxKey int
 
 const ctxUserKey ctxKey = 0
 
+// maxBodyBytes caps the size of every request body (defense in depth; the
+// JSON decoders already apply the same limit).
+const maxBodyBytes = 10 << 20
+
+// secureHeaders sets hardening headers on every response.
+func secureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		// HSTS only makes sense over HTTPS (direct TLS or behind a proxy that
+		// forwards the scheme). Setting it on plain HTTP would be harmful.
+		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// limitBody caps the size of every request body.
+func limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+		next.ServeHTTP(w, r)
+	})
+}
+
 func randomHex(n int) string {
 	b := make([]byte, n)
 	if _, err := rand.Read(b); err != nil {
@@ -90,14 +117,37 @@ func (s *Server) rateLimited(name string, next http.HandlerFunc) http.HandlerFun
 }
 
 func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return strings.TrimSpace(strings.Split(xff, ",")[0])
+	// Trust X-Forwarded-For only when the immediate peer is a local reverse
+	// proxy (loopback/private network). Otherwise an attacker could spoof
+	// arbitrary IPs to bypass rate limiting.
+	if isPrivatePeer(r.RemoteAddr) {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			return strings.TrimSpace(strings.Split(xff, ",")[0])
+		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// isPrivatePeer reports whether the immediate connection comes from loopback
+// or a private/unique-local address (i.e. a reverse proxy on the same host or
+// LAN). IPv6 zone identifiers are stripped before parsing.
+func isPrivatePeer(remoteAddr string) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	if i := strings.IndexByte(host, '%'); i >= 0 {
+		host = host[:i] // strip IPv6 zone
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
 }
 
 type statusWriter struct {

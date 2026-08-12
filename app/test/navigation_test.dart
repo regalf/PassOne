@@ -117,7 +117,6 @@ class _FakeBiometricsController extends SessionController {
         username: 'dave',
         salt: Uint8List(16),
         kdf: const {'algorithm': 'argon2id', 'memoryKiB': 19456},
-        authHash: Uint8List(32),
         wrappedKey: Uint8List(48),
         wrappedRecovery: null,
         blob: Uint8List(16),
@@ -162,6 +161,10 @@ class _FakeVaultController extends SessionController {
   }
   @override
   void touch() {}
+  @override
+  Future<void> saveVault(VaultData vault) async {
+    state = state.copyWith(vault: vault);
+  }
 }
 
 Widget _app(SessionController c) => ProviderScope(
@@ -173,6 +176,15 @@ Widget _app(SessionController c) => ProviderScope(
 
 Future<void> _fill(WidgetTester tester, int index, String text) async {
   await tester.enterText(find.byType(TextField).at(index), text);
+}
+
+/// First step of the login flow: enters the server address and continues
+/// to the classic login screen.
+Future<void> _connectToServer(WidgetTester tester,
+    {String server = 'https://passone.test'}) async {
+  await _fill(tester, 0, server);
+  await tester.tap(find.text('Continue'));
+  await tester.pumpAndSettle();
 }
 
 /// Pumps manually: during submit the spinner on the button animates forever
@@ -191,6 +203,9 @@ void main() {
     final c = _FakeController();
     await tester.pumpWidget(_app(c));
     await tester.pumpAndSettle();
+    expect(find.text('Continue'), findsOneWidget,
+        reason: 'the login starts with the server address step');
+    await _connectToServer(tester);
     expect(find.text('Sign in'), findsOneWidget);
     await tester.tap(find.text('Create an account'));
     await tester.pumpAndSettle();
@@ -210,6 +225,7 @@ void main() {
     final c = _FakeController();
     await tester.pumpWidget(_app(c));
     await tester.pumpAndSettle();
+    await _connectToServer(tester);
     await tester.tap(find.text('Create an account'));
     await tester.pumpAndSettle();
     await _fill(tester, 0, 'bob');
@@ -226,13 +242,15 @@ void main() {
         scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('Log out'));
     await tester.pumpAndSettle();
-    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('Continue'), findsOneWidget,
+        reason: 'after logout the login restarts from the server step');
     expect(find.widgetWithText(FloatingActionButton, 'New'), findsNothing);
   });
   testWidgets('account recovery returns to the vault home', (tester) async {
     final c = _FakeController();
     await tester.pumpWidget(_app(c));
     await tester.pumpAndSettle();
+    await _connectToServer(tester);
     await tester.tap(find.text('Forgot password? Use recovery key'));
     await tester.pumpAndSettle();
     await _fill(tester, 0, 'carol');
@@ -254,7 +272,8 @@ void main() {
     // setting the fake to the "locked" state with biometrics active.
     await tester.pumpWidget(_app(c));
     await tester.pumpAndSettle();
-    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('Continue'), findsOneWidget,
+        reason: 'the login starts with the server address step');
     c.startLocked();
     await tester.pump();
     await tester.pumpAndSettle();
@@ -341,5 +360,30 @@ void main() {
     expect(copied, isNotNull, reason: 'the tap must copy the code');
     expect(matchesAnyWindow(copied!, secret, DateTime.now()), isTrue,
         reason: 'the copied code ($copied) does not match RFC 6238');
+  });
+  testWidgets('an SSH key can be added from the SSH tab and appears in the '
+      'list', (tester) async {
+    final c = _FakeVaultController();
+    await tester.pumpWidget(_app(c));
+    await tester.pumpAndSettle();
+    c.start();
+    await tester.pump();
+    await tester.tap(find.text('SSH'));
+    await tester.pump();
+    expect(find.text('No SSH keys.\nPress "New" to add a key.'),
+        findsOneWidget);
+    await tester.tap(find.widgetWithText(FloatingActionButton, 'New'));
+    await tester.pumpAndSettle();
+    expect(find.text('New SSH key'), findsOneWidget);
+    await _fill(tester, 0, 'work-key');
+    await _fill(tester, 1, 'github.com');
+    await _fill(tester, 2, 'git');
+    await _fill(tester, 3,
+        '-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----');
+    await tester.ensureVisible(find.widgetWithText(FilledButton, 'Save'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
+    await tester.pumpAndSettle();
+    expect(find.text('work-key'), findsOneWidget);
+    expect(find.text('git @ github.com'), findsOneWidget);
   });
 }

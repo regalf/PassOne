@@ -11,6 +11,7 @@ import '../../state/providers.dart';
 import '../settings/settings_screen.dart';
 import 'entry_edit_screen.dart';
 import 'qr_scanner_screen.dart';
+import 'ssh_edit_screen.dart';
 
 class VaultScreen extends ConsumerStatefulWidget {
   const VaultScreen({super.key});
@@ -23,8 +24,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
     with SingleTickerProviderStateMixin {
   String _query = '';
   String _error = '';
-  int _tab = 0; // 0 = Password, 1 = TOTP
-  late final TabController _tabController = TabController(length: 2, vsync: this)
+  int _tab = 0; // 0 = Password, 1 = TOTP, 2 = SSH
+  late final TabController _tabController = TabController(length: 3, vsync: this)
     ..addListener(() {
       final t = _tabController.index;
       if (t != _tab) {
@@ -64,6 +65,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
 
   List<VaultEntry> get _totpEntries =>
       _vault.entries.where((e) => e.isTotp && _matchesQuery(e)).toList();
+
+  List<VaultEntry> get _sshEntries =>
+      _vault.entries.where((e) => e.isSsh && _matchesQuery(e)).toList();
 
   List<VaultEntry> get _allTotpEntries =>
       (ref.read(sessionControllerProvider).vault ?? VaultData())
@@ -150,7 +154,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final vault = _vault;
-    final entries = _tab == 0 ? _passwordEntries : _totpEntries;
+    final entries = _tab == 0
+        ? _passwordEntries
+        : _tab == 1
+            ? _totpEntries
+            : _sshEntries;
 
     return Scaffold(
       appBar: AppBar(
@@ -199,6 +207,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                 tabs: [
                   Tab(icon: const Icon(Icons.key_outlined), text: context.l10n.tabPasswords),
                   Tab(icon: const Icon(Icons.pin_outlined), text: context.l10n.tabTotp),
+                  Tab(icon: const Icon(Icons.vpn_key_outlined), text: context.l10n.tabSsh),
                 ],
               ),
             ],
@@ -218,11 +227,25 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
               icon: const Icon(Icons.add),
               label: Text(context.l10n.newFab),
             )
-          : FloatingActionButton.extended(
-              onPressed: _scanQr,
-              icon: const Icon(Icons.photo_camera),
-              label: Text(context.l10n.addFab),
-            ),
+          : _tab == 1
+              ? FloatingActionButton.extended(
+                  onPressed: _scanQr,
+                  icon: const Icon(Icons.photo_camera),
+                  label: Text(context.l10n.addFab),
+                )
+              : FloatingActionButton.extended(
+                  onPressed: () async {
+                    ref.read(sessionControllerProvider.notifier).touch();
+                    final entry = await Navigator.of(context).push<VaultEntry>(
+                        MaterialPageRoute(
+                            builder: (_) => const SshEditScreen()));
+                    if (entry != null) {
+                      await _save([entry, ...vault.entries]);
+                    }
+                  },
+                  icon: const Icon(Icons.add),
+                  label: Text(context.l10n.newFab),
+                ),
       body: _error.isNotEmpty
           ? Center(
               child: Padding(
@@ -238,7 +261,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                     _query.isEmpty
                         ? (_tab == 0
                             ? context.l10n.emptyVault
-                            : context.l10n.emptyTotp)
+                            : _tab == 1
+                                ? context.l10n.emptyTotp
+                                : context.l10n.emptySsh)
                         : context.l10n.noResults(_query),
                     textAlign: TextAlign.center,
                   ),
@@ -249,7 +274,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (_, i) => _tab == 0
                       ? _passwordTile(entries[i], theme)
-                      : _totpTile(entries[i], theme),
+                      : _tab == 1
+                          ? _totpTile(entries[i], theme)
+                          : _sshTile(entries[i], theme),
                 ),
     );
   }
@@ -337,6 +364,91 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
 
   String _initial(String name) =>
       name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase();
+
+  Widget _sshTile(VaultEntry e, ThemeData theme) {
+    final host = e.url.isNotEmpty ? '@ ${e.url}' : '';
+    return ListTile(
+      leading: const CircleAvatar(child: Icon(Icons.vpn_key_outlined)),
+      title: Text(e.name),
+      subtitle: Text(
+        [e.username, host].where((s) => s.isNotEmpty).join(' '),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      onTap: () async {
+        ref.read(sessionControllerProvider.notifier).touch();
+        final edited = await Navigator.of(context).push<VaultEntry>(
+            MaterialPageRoute(builder: (_) => SshEditScreen(entry: e)));
+        if (edited != null) {
+          await _save(_vault.entries
+              .map((x) => x.id == edited.id ? edited : x)
+              .toList());
+        }
+      },
+      trailing: PopupMenuButton<String>(
+        onSelected: (v) => _sshAction(e, v),
+        itemBuilder: (_) => [
+          if (e.privateKey != null)
+            PopupMenuItem(
+                value: 'copy_priv',
+                child: Text(context.l10n.copyPrivateKey)),
+          if (e.publicKey != null)
+            PopupMenuItem(
+                value: 'copy_pub',
+                child: Text(context.l10n.copyPublicKey)),
+          if (e.passphrase != null)
+            PopupMenuItem(
+                value: 'copy_pass',
+                child: Text(context.l10n.copyPassphrase)),
+          PopupMenuItem(value: 'delete', child: Text(context.l10n.delete)),
+        ],
+      ),
+    );
+  }
+
+  void _sshAction(VaultEntry e, String action) async {
+    ref.read(sessionControllerProvider.notifier).touch();
+    switch (action) {
+      case 'copy_priv':
+        await Clipboard.setData(ClipboardData(text: e.privateKey ?? ''));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.l10n.privateKeyCopied)));
+        }
+      case 'copy_pub':
+        await Clipboard.setData(ClipboardData(text: e.publicKey ?? ''));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.l10n.publicKeyCopied)));
+        }
+      case 'copy_pass':
+        await Clipboard.setData(ClipboardData(text: e.passphrase ?? ''));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.l10n.passphraseCopied)));
+        }
+      case 'delete':
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(ctx.l10n.deleteEntryTitle),
+            content: Text(ctx.l10n.deleteEntryBody(e.name)),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(ctx.l10n.cancel)),
+              FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: Text(ctx.l10n.delete)),
+            ],
+          ),
+        );
+        final vault = ref.read(sessionControllerProvider).vault;
+        if (ok == true && vault != null) {
+          await _save(vault.entries.where((x) => x.id != e.id).toList());
+        }
+    }
+  }
 
   void _action(VaultEntry e, String action) async {
     ref.read(sessionControllerProvider.notifier).touch();

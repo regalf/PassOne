@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -85,7 +86,6 @@ class CachedVault {
   final String username;
   final Uint8List salt;
   final Map<String, dynamic> kdf;
-  final Uint8List authHash;
   final Uint8List wrappedKey;
   final Uint8List? wrappedRecovery;
   final Uint8List blob;
@@ -99,7 +99,6 @@ class CachedVault {
     required this.username,
     required this.salt,
     required this.kdf,
-    required this.authHash,
     required this.wrappedKey,
     required this.wrappedRecovery,
     required this.blob,
@@ -114,7 +113,6 @@ class CachedVault {
         'username': username,
         'salt': base64.encode(salt),
         'kdf': kdf,
-        'authHash': base64.encode(authHash),
         'wrappedKey': base64.encode(wrappedKey),
         'wrappedRecovery': wrappedRecovery == null ? null : base64.encode(wrappedRecovery!),
         'blob': base64.encode(blob),
@@ -130,7 +128,6 @@ class CachedVault {
         username: j['username'] as String,
         salt: base64.decode(j['salt'] as String),
         kdf: (j['kdf'] as Map).cast<String, dynamic>(),
-        authHash: base64.decode(j['authHash'] as String),
         wrappedKey: base64.decode(j['wrappedKey'] as String),
         wrappedRecovery: j['wrappedRecovery'] == null
             ? null
@@ -197,7 +194,36 @@ class SettingsRepository {
 
   Future<void> saveCache(CachedVault cache) async {
     final f = await _cacheFile();
-    await f.writeAsString(jsonEncode(cache.toJson()));
+    // Atomic write: temp file + rename so a crash/power loss cannot leave a
+    // partially written cache behind.
+    final tmp = File('${f.path}.tmp');
+    await tmp.writeAsString(jsonEncode(cache.toJson()), flush: true);
+    await tmp.rename(f.path);
+    await _restrictCachePermissions(f);
+  }
+
+  /// Restricts the cache file to the owner (0600) on desktop platforms.
+  /// On Android/iOS the app directory is already sandboxed by the OS.
+  Future<void> _restrictCachePermissions(File f) async {
+    if (Platform.isAndroid || Platform.isIOS) return;
+    try {
+      final res = await Process.run('chmod', ['600', f.path]);
+      if (res.exitCode != 0) {
+        developer.log(
+          'could not restrict cache permissions',
+          name: 'passone.settings',
+          error: res.stderr,
+        );
+      }
+    } catch (e) {
+      // Best effort: chmod may be unavailable; the home dir is usually
+      // already private (0700) on desktop Linux.
+      developer.log(
+        'could not restrict cache permissions',
+        name: 'passone.settings',
+        error: e,
+      );
+    }
   }
 
   Future<void> clearCache() async {

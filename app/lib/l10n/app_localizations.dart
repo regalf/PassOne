@@ -134,6 +134,30 @@ abstract class AppLocalizations {
   /// **'https://passone.example.com'**
   String get serverHint;
 
+  /// No description provided for @serverIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the address of your PassOne server'**
+  String get serverIntro;
+
+  /// No description provided for @connectButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get connectButton;
+
+  /// No description provided for @changeServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Change server'**
+  String get changeServer;
+
+  /// No description provided for @invalidServerUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid server address.'**
+  String get invalidServerUrl;
+
   /// No description provided for @username.
   ///
   /// In en, this message translates to:
@@ -398,6 +422,12 @@ abstract class AppLocalizations {
   /// **'TOTP'**
   String get tabTotp;
 
+  /// No description provided for @tabSsh.
+  ///
+  /// In en, this message translates to:
+  /// **'SSH'**
+  String get tabSsh;
+
   /// No description provided for @newFab.
   ///
   /// In en, this message translates to:
@@ -434,6 +464,12 @@ abstract class AppLocalizations {
   /// **'No TOTP codes.\nPress \"Add\" to scan a QR.'**
   String get emptyTotp;
 
+  /// No description provided for @emptySsh.
+  ///
+  /// In en, this message translates to:
+  /// **'No SSH keys.\nPress \"New\" to add a key.'**
+  String get emptySsh;
+
   /// No description provided for @noResults.
   ///
   /// In en, this message translates to:
@@ -457,6 +493,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copy code'**
   String get copyCode;
+
+  /// No description provided for @copyPrivateKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy private key'**
+  String get copyPrivateKey;
+
+  /// No description provided for @copyPublicKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy public key'**
+  String get copyPublicKey;
+
+  /// No description provided for @copyPassphrase.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy passphrase'**
+  String get copyPassphrase;
 
   /// No description provided for @delete.
   ///
@@ -499,6 +553,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Code copied'**
   String get codeCopied;
+
+  /// No description provided for @privateKeyCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Private key copied'**
+  String get privateKeyCopied;
+
+  /// No description provided for @publicKeyCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Public key copied'**
+  String get publicKeyCopied;
+
+  /// No description provided for @passphraseCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Passphrase copied'**
+  String get passphraseCopied;
 
   /// No description provided for @totpNotes.
   ///
@@ -571,6 +643,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter a name.'**
   String get enterName;
+
+  /// No description provided for @newSshTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New SSH key'**
+  String get newSshTitle;
+
+  /// No description provided for @editSshTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit SSH key'**
+  String get editSshTitle;
+
+  /// No description provided for @host.
+  ///
+  /// In en, this message translates to:
+  /// **'Host'**
+  String get host;
+
+  /// No description provided for @privateKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Private key'**
+  String get privateKey;
+
+  /// No description provided for @publicKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Public key'**
+  String get publicKey;
+
+  /// No description provided for @passphrase.
+  ///
+  /// In en, this message translates to:
+  /// **'Passphrase'**
+  String get passphrase;
+
+  /// No description provided for @importFromFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Import from file…'**
+  String get importFromFile;
+
+  /// No description provided for @sshImportFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not read the file.'**
+  String get sshImportFailed;
+
+  /// No description provided for @keyImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported {file}'**
+  String keyImported(Object file);
 
   /// No description provided for @generatorTitle.
   ///

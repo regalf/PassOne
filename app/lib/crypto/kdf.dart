@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:typed_data';
 
 import 'package:argon2_ffi_base/argon2_ffi_base.dart';
@@ -96,6 +97,12 @@ class Kdf {
         return hash;
       } catch (e) {
         _argon2Failed = true;
+        developer.log(
+          'argon2id unavailable, falling back to PBKDF2-SHA256 '
+          '(weaker KDF than requested)',
+          name: 'passone.kdf',
+          error: e,
+        );
       }
     }
     // Deterministic fallback: PBKDF2 with parameters derived from the argon2 costs.

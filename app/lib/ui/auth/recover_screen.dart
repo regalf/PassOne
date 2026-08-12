@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/client.dart';
 import '../../l10n/l10n.dart';
+import '../../platform/secure_window.dart';
 import '../../state/providers.dart';
 import '../../state/session.dart';
 
@@ -85,40 +86,40 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
   }
 
   Future<void> _showNewRecoveryKey(String key) async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: Text(ctx.l10n.newRecoveryKeyTitle),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              ctx.l10n.newRecoveryKeyBody,
-              textAlign: TextAlign.center,
+    await SecureWindow.guarded(() => showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: Text(ctx.l10n.newRecoveryKeyTitle),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  ctx.l10n.newRecoveryKeyBody,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: SelectableText(
+                    key,
+                    style: const TextStyle(fontFamily: 'monospace'),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text(ctx.l10n.savedKeyButton),
               ),
-              child: SelectableText(
-                key,
-                style: const TextStyle(fontFamily: 'monospace'),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(ctx.l10n.savedKeyButton),
+            ],
           ),
-        ],
-      ),
-    );
+        ));
   }
 
   @override

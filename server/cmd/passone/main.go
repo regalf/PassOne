@@ -105,7 +105,14 @@ func cmdServe(log *slog.Logger, args []string) error {
 		log.Info("TLS enabled", "cert", cfg.TLSCert)
 	}
 	if cfg.AdminToken == "" {
-		log.Info("admin token generated (save it!)", "admin_token", srv.AdminToken(), "db_path", cfg.DBPath)
+		// Log only a prefix: the full token is a secret and must not end up
+		// in log files. The admin can still read it from the CLI output.
+		tok := srv.AdminToken()
+		prefix := tok
+		if len(tok) > 12 {
+			prefix = tok[:12] + "…"
+		}
+		log.Info("admin token generated (save it!)", "admin_token", prefix, "db_path", cfg.DBPath)
 	} else {
 		log.Info("admin token from configuration", "db_path", cfg.DBPath)
 	}
@@ -235,7 +242,7 @@ func cmdConfig(args []string) error {
 	_ = fs.Parse(args[1:])
 	cfg := config.Default()
 	// Generates a random admin token so it doesn't need to be printed.
-	token, err := crypto.RandomHex(24)
+	token, err := crypto.RandomHex(32)
 	if err != nil {
 		return err
 	}

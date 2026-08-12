@@ -70,7 +70,6 @@ void main() {
     final salt = VaultCrypto.randomBytes(16);
     final kdf = KdfParams.pbkdf2(iterations: 1000);
     final kek = await Kdf().derive(password, salt, kdf);
-    final authHash = await sha256Bytes(kek);
     final vaultKey = VaultCrypto.generateVaultKey();
     final wrappedKey = await VaultCrypto.wrapKey(kek, vaultKey);
     final vault = VaultData(entries: [
@@ -84,7 +83,6 @@ void main() {
       username: 'alice',
       salt: salt,
       kdf: kdf.toJson(),
-      authHash: authHash,
       wrappedKey: wrappedKey,
       wrappedRecovery: null,
       blob: blob,

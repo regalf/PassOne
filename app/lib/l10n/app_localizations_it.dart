@@ -27,6 +27,18 @@ class AppLocalizationsIt extends AppLocalizations {
   String get serverHint => 'https://passone.example.com';
 
   @override
+  String get serverIntro => 'Inserisci l\'indirizzo del tuo server PassOne';
+
+  @override
+  String get connectButton => 'Continua';
+
+  @override
+  String get changeServer => 'Cambia server';
+
+  @override
+  String get invalidServerUrl => 'Inserisci un indirizzo server valido.';
+
+  @override
   String get username => 'Nome utente';
 
   @override
@@ -171,6 +183,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get tabTotp => 'TOTP';
 
   @override
+  String get tabSsh => 'SSH';
+
+  @override
   String get newFab => 'Nuova';
 
   @override
@@ -191,6 +206,10 @@ class AppLocalizationsIt extends AppLocalizations {
       'Nessun codice TOTP.\nPremi \"Aggiungi\" per scansionare un QR.';
 
   @override
+  String get emptySsh =>
+      'Nessuna chiave SSH.\nPremi \"Nuova\" per aggiungere una chiave.';
+
+  @override
   String noResults(Object query) {
     return 'Nessun risultato per \"$query\".';
   }
@@ -203,6 +222,15 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get copyCode => 'Copia codice';
+
+  @override
+  String get copyPrivateKey => 'Copia chiave privata';
+
+  @override
+  String get copyPublicKey => 'Copia chiave pubblica';
+
+  @override
+  String get copyPassphrase => 'Copia passphrase';
 
   @override
   String get delete => 'Elimina';
@@ -226,6 +254,15 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get codeCopied => 'Codice copiato';
+
+  @override
+  String get privateKeyCopied => 'Chiave privata copiata';
+
+  @override
+  String get publicKeyCopied => 'Chiave pubblica copiata';
+
+  @override
+  String get passphraseCopied => 'Passphrase copiata';
 
   @override
   String get totpNotes => 'Codice a due fattori';
@@ -264,6 +301,35 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get enterName => 'Inserisci un nome.';
+
+  @override
+  String get newSshTitle => 'Nuova chiave SSH';
+
+  @override
+  String get editSshTitle => 'Modifica chiave SSH';
+
+  @override
+  String get host => 'Host';
+
+  @override
+  String get privateKey => 'Chiave privata';
+
+  @override
+  String get publicKey => 'Chiave pubblica';
+
+  @override
+  String get passphrase => 'Passphrase';
+
+  @override
+  String get importFromFile => 'Importa da file…';
+
+  @override
+  String get sshImportFailed => 'Impossibile leggere il file.';
+
+  @override
+  String keyImported(Object file) {
+    return 'Importato $file';
+  }
 
   @override
   String get generatorTitle => 'Generatore password';

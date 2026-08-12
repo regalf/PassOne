@@ -9,6 +9,9 @@ class VaultEntry {
   String password;
   String notes;
   String? totpSecret;
+  String? privateKey;
+  String? publicKey;
+  String? passphrase;
   DateTime createdAt;
   DateTime updatedAt;
 
@@ -20,17 +23,32 @@ class VaultEntry {
     required this.password,
     required this.notes,
     this.totpSecret,
+    this.privateKey,
+    this.publicKey,
+    this.passphrase,
     required this.createdAt,
     required this.updatedAt,
   });
 
-  VaultEntry.create({required this.name, this.url = '', this.username = '', this.password = '', this.notes = '', this.totpSecret})
-      : id = const Uuid().v4(),
+  VaultEntry.create({
+    required this.name,
+    this.url = '',
+    this.username = '',
+    this.password = '',
+    this.notes = '',
+    this.totpSecret,
+    this.privateKey,
+    this.publicKey,
+    this.passphrase,
+  })  : id = const Uuid().v4(),
         createdAt = DateTime.now().toUtc(),
         updatedAt = DateTime.now().toUtc();
 
   /// True if it is a TOTP entry (authenticator).
   bool get isTotp => totpSecret != null;
+
+  /// True if it is an SSH key entry.
+  bool get isSsh => (privateKey?.isNotEmpty ?? false) || (publicKey?.isNotEmpty ?? false);
 
   VaultEntry copyWith({
     String? name,
@@ -39,6 +57,9 @@ class VaultEntry {
     String? password,
     String? notes,
     String? Function()? totpSecret,
+    String? Function()? privateKey,
+    String? Function()? publicKey,
+    String? Function()? passphrase,
   }) {
     return VaultEntry(
       id: id,
@@ -48,6 +69,9 @@ class VaultEntry {
       password: password ?? this.password,
       notes: notes ?? this.notes,
       totpSecret: totpSecret != null ? totpSecret() : this.totpSecret,
+      privateKey: privateKey != null ? privateKey() : this.privateKey,
+      publicKey: publicKey != null ? publicKey() : this.publicKey,
+      passphrase: passphrase != null ? passphrase() : this.passphrase,
       createdAt: createdAt,
       updatedAt: DateTime.now().toUtc(),
     );
@@ -61,6 +85,9 @@ class VaultEntry {
         'password': password,
         'notes': notes,
         'totpSecret': totpSecret,
+        'privateKey': privateKey,
+        'publicKey': publicKey,
+        'passphrase': passphrase,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
       };
@@ -73,6 +100,9 @@ class VaultEntry {
         password: (json['password'] as String?) ?? '',
         notes: (json['notes'] as String?) ?? '',
         totpSecret: json['totpSecret'] as String?,
+        privateKey: json['privateKey'] as String?,
+        publicKey: json['publicKey'] as String?,
+        passphrase: json['passphrase'] as String?,
         createdAt: DateTime.parse(json['createdAt'] as String),
         updatedAt: DateTime.parse(json['updatedAt'] as String),
       );

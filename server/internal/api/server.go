@@ -31,7 +31,7 @@ type Server struct {
 func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
 	admin := cfg.AdminToken
 	if admin == "" {
-		admin = "admin_" + randomHex(24)
+		admin = "admin_" + randomHex(32)
 	}
 	return &Server{
 		cfg:   cfg,
@@ -68,7 +68,7 @@ func (s *Server) Routes() http.Handler {
 
 	mux.HandleFunc("GET /health", s.handleHealth)
 
-	return mux
+	return secureHeaders(limitBody(mux))
 }
 
 // ---------- response helpers ----------

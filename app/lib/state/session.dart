@@ -231,8 +231,8 @@ class SessionController extends StateNotifier<SessionState> {
       deviceName: _deviceName(),
     );
 
-    final cache = _buildCache(session, salt, kdf, authHashB64, wrapped,
-        wrappedRecov, blob, nonce);
+    final cache = _buildCache(
+        session, salt, kdf, wrapped, wrappedRecov, blob, nonce);
     await _repo.saveCache(cache);
     await setLastUsername(username);
     state = state.copyWith(
@@ -254,14 +254,12 @@ class SessionController extends StateNotifier<SessionState> {
     final vaultData = VaultData.fromJson(
         VaultCrypto.decodeJson(await VaultCrypto.decrypt(
             vaultKey, remote.blob, remote.nonce)));
-    final authHashB64 = VaultCrypto.bytesToB64(await sha256Bytes(kek));
     final cache = CachedVault(
       token: session.token,
       userId: session.user.id,
       username: session.user.username,
       salt: remote.salt,
       kdf: remote.kdf,
-      authHash: VaultCrypto.b64ToBytes(authHashB64),
       wrappedKey: remote.wrappedKey,
       wrappedRecovery: remote.wrappedRecoveryKey,
       blob: remote.blob,
@@ -288,11 +286,15 @@ class SessionController extends StateNotifier<SessionState> {
     }
     final kdf = KdfParams.fromJson(cache.kdf);
     final kek = await _deriveKek(password, cache.salt, kdf);
-    final authHash = await sha256Bytes(kek);
-    if (!_bytesEqual(authHash, cache.authHash)) {
+    // The wrapped key authenticates the derived KEK: unwrap fails if the
+    // password is wrong. There is no authHash in the cache, so a stolen cache
+    // does not leak the password verifier used to authenticate to the server.
+    Uint8List vaultKey;
+    try {
+      vaultKey = await VaultCrypto.unwrapKey(kek, cache.wrappedKey);
+    } catch (_) {
       throw WrongPasswordException();
     }
-    final vaultKey = await VaultCrypto.unwrapKey(kek, cache.wrappedKey);
     final vaultData = VaultData.fromJson(
         VaultCrypto.decodeJson(
             await VaultCrypto.decrypt(vaultKey, cache.blob, cache.nonce)));
@@ -394,7 +396,6 @@ class SessionController extends StateNotifier<SessionState> {
         username: cache.username,
         salt: cache.salt,
         kdf: cache.kdf,
-        authHash: cache.authHash,
         wrappedKey: cache.wrappedKey,
         wrappedRecovery: cache.wrappedRecovery,
         blob: cache.blob,
@@ -502,7 +503,6 @@ class SessionController extends StateNotifier<SessionState> {
       username: cache.username,
       salt: cache.salt,
       kdf: cache.kdf,
-      authHash: cache.authHash,
       wrappedKey: cache.wrappedKey,
       wrappedRecovery: cache.wrappedRecovery,
       blob: blob,
@@ -559,10 +559,14 @@ class SessionController extends StateNotifier<SessionState> {
     }
     final oldKdf = KdfParams.fromJson(cache.kdf);
     final oldKek = await _deriveKek(oldPassword, cache.salt, oldKdf);
-    final oldAuthHash = await sha256Bytes(oldKek);
-    if (!_bytesEqual(oldAuthHash, cache.authHash)) {
+    // Unwrap fails if the old password is wrong (no authHash in the cache).
+    try {
+      await VaultCrypto.unwrapKey(oldKek, cache.wrappedKey);
+    } catch (_) {
       throw WrongPasswordException();
     }
+    // The server still verifies the old password through the auth hash.
+    final oldAuthHash = await sha256Bytes(oldKek);
 
     final newSalt = VaultCrypto.randomBytes(16);
     final newKdf = KdfParams.argon2id();
@@ -604,7 +608,6 @@ class SessionController extends StateNotifier<SessionState> {
       username: cache.username,
       salt: newSalt,
       kdf: newKdf.toJson(),
-      authHash: VaultCrypto.b64ToBytes(newAuthHashB64),
       wrappedKey: newWrapped,
       wrappedRecovery: wrappedRecov,
       blob: cache.blob,
@@ -679,7 +682,6 @@ class SessionController extends StateNotifier<SessionState> {
       username: session.user.username,
       salt: newSalt,
       kdf: newKdf.toJson(),
-      authHash: VaultCrypto.b64ToBytes(newAuthHashB64),
       wrappedKey: newWrapped,
       wrappedRecovery: newWrappedRecov,
       blob: payload.blob,
@@ -701,7 +703,7 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   CachedVault _buildCache(Session session, Uint8List salt, KdfParams kdf,
-      String authHashB64, Uint8List wrapped, Uint8List? wrappedRecov,
+      Uint8List wrapped, Uint8List? wrappedRecov,
       Uint8List blob, Uint8List nonce) {
     return CachedVault(
       token: session.token,
@@ -709,7 +711,6 @@ class SessionController extends StateNotifier<SessionState> {
       username: session.user.username,
       salt: salt,
       kdf: kdf.toJson(),
-      authHash: VaultCrypto.b64ToBytes(authHashB64),
       wrappedKey: wrapped,
       wrappedRecovery: wrappedRecov,
       blob: blob,
@@ -733,15 +734,6 @@ class SessionController extends StateNotifier<SessionState> {
     final merged = byId.values.toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
     return VaultData(entries: merged);
-  }
-
-  bool _bytesEqual(Uint8List a, Uint8List b) {
-    if (a.length != b.length) return false;
-    var diff = 0;
-    for (var i = 0; i < a.length; i++) {
-      diff |= a[i] ^ b[i];
-    }
-    return diff == 0;
   }
 
   String _deviceName() {
