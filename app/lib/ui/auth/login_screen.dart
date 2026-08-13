@@ -203,6 +203,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
         const SizedBox(height: 28),
         TextField(
+          enableIMEPersonalizedLearning: false,
           controller: _serverController,
           decoration: InputDecoration(
             labelText: l10n.serverLabel,
@@ -249,6 +250,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             textAlign: TextAlign.center, style: theme.textTheme.bodySmall),
         const SizedBox(height: 28),
         TextField(
+          enableIMEPersonalizedLearning: false,
           controller: _usernameController,
           decoration: InputDecoration(
             labelText: l10n.username,
@@ -259,6 +261,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         const SizedBox(height: 12),
         TextField(
+          enableIMEPersonalizedLearning: false,
           controller: _passwordController,
           obscureText: _obscure,
           onSubmitted: (_) => _login(),

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/autofill_label"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="12dp"
+    android:textSize="14sp"
+    android:textColor="#FFFFFFFF"
+    android:background="#FF2E7D32"
+    android:gravity="center_vertical"
+    android:text="PassOne" />

@@ -124,6 +124,7 @@ class _EntryEditScreenState extends ConsumerState<EntryEditScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
+              enableIMEPersonalizedLearning: false,
               controller: _name,
               autofocus: _isNew,
               decoration: InputDecoration(
@@ -136,6 +137,7 @@ class _EntryEditScreenState extends ConsumerState<EntryEditScreen> {
                 const []),
             const SizedBox(height: 12),
             TextField(
+              enableIMEPersonalizedLearning: false,
               controller: _url,
               decoration: InputDecoration(
                 labelText: context.l10n.url,
@@ -147,6 +149,7 @@ class _EntryEditScreenState extends ConsumerState<EntryEditScreen> {
             ),
             const SizedBox(height: 12),
             TextField(
+              enableIMEPersonalizedLearning: false,
               controller: _username,
               decoration: InputDecoration(
                 labelText: context.l10n.usernameEmail,
@@ -157,6 +160,7 @@ class _EntryEditScreenState extends ConsumerState<EntryEditScreen> {
             ),
             const SizedBox(height: 12),
             TextField(
+              enableIMEPersonalizedLearning: false,
               controller: _password,
               obscureText: _obscure,
               decoration: InputDecoration(
@@ -188,6 +192,7 @@ class _EntryEditScreenState extends ConsumerState<EntryEditScreen> {
             ),
             const SizedBox(height: 12),
             TextField(
+              enableIMEPersonalizedLearning: false,
               controller: _notes,
               maxLines: 4,
               decoration: InputDecoration(

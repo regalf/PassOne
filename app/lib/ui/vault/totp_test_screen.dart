@@ -182,6 +182,7 @@ class _TotpTestScreenState extends ConsumerState<TotpTestScreen> {
                   Text(context.l10n.secondsLeft(_left), style: theme.textTheme.bodySmall)),
           const SizedBox(height: 24),
           TextField(
+            enableIMEPersonalizedLearning: false,
             controller: _codeController,
             keyboardType: TextInputType.number,
             maxLength: 6,

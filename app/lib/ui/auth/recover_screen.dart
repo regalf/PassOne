@@ -141,6 +141,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
                 ),
                 const SizedBox(height: 20),
                 TextField(
+                  enableIMEPersonalizedLearning: false,
                   controller: _username,
                   decoration: InputDecoration(
                     labelText: context.l10n.username,
@@ -150,6 +151,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  enableIMEPersonalizedLearning: false,
                   controller: _recoveryKey,
                   decoration: InputDecoration(
                     labelText: context.l10n.recoveryKey,
@@ -160,6 +162,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  enableIMEPersonalizedLearning: false,
                   controller: _password,
                   obscureText: _obscure,
                   decoration: InputDecoration(
@@ -175,6 +178,7 @@ class _RecoverScreenState extends ConsumerState<RecoverScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  enableIMEPersonalizedLearning: false,
                   controller: _confirm,
                   obscureText: _obscure,
                   onSubmitted: (_) => _submit(),

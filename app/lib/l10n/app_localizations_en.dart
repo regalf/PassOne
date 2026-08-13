@@ -463,6 +463,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsTitle => 'Settings';
 
   @override
+  String get autofill => 'Autofill';
+
+  @override
+  String get autofillSub =>
+      'When enabled, PassOne fills saved logins in other apps and browsers and captures new passwords to store in the vault.';
+
+  @override
+  String get autofillEnabled => 'Active';
+
+  @override
+  String get autofillDisabled => 'Disabled — tap to open the system settings';
+
+  @override
+  String get autofillChecking => 'Checking…';
+
+  @override
+  String autofillImported(Object count) {
+    return '$count passwords imported from autofill';
+  }
+
+  @override
   String get sectionGeneral => 'General';
 
   @override

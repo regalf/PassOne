@@ -106,6 +106,7 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          _AutofillSection(),
           const ImportExportSection(),
           _Section(
             title: l10n.sectionDeveloper,
@@ -196,6 +197,7 @@ class SettingsScreen extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: Text(ctx.l10n.serverAddress),
         content: TextField(
+          enableIMEPersonalizedLearning: false,
           controller: controller,
           decoration: InputDecoration(
             labelText: ctx.l10n.url,
@@ -360,6 +362,7 @@ class SettingsScreen extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: Text(ctx.l10n.confirmMaster),
         content: TextField(
+          enableIMEPersonalizedLearning: false,
           controller: controller,
           obscureText: true,
           autofocus: true,
@@ -406,16 +409,19 @@ class SettingsScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
+              enableIMEPersonalizedLearning: false,
                 controller: oldC,
                 obscureText: true,
                 decoration: InputDecoration(
                     labelText: ctx.l10n.currentPassword)),
             TextField(
+              enableIMEPersonalizedLearning: false,
                 controller: newC,
                 obscureText: true,
                 decoration: InputDecoration(
                     labelText: ctx.l10n.newPassword)),
             TextField(
+              enableIMEPersonalizedLearning: false,
                 controller: confirmC,
                 obscureText: true,
                 decoration: InputDecoration(
@@ -487,6 +493,83 @@ class _Section extends StatelessWidget {
         Card(
           margin: EdgeInsets.zero,
           child: Column(children: children),
+        ),
+      ],
+    );
+  }
+}
+
+/// Status + activation entry point for the system autofill service. Re-checks
+/// the system setting whenever the app resumes (e.g. after enabling PassOne in
+/// the Android autofill settings).
+class _AutofillSection extends ConsumerStatefulWidget {
+  const _AutofillSection();
+
+  @override
+  ConsumerState<_AutofillSection> createState() => _AutofillSectionState();
+}
+
+class _AutofillSectionState extends ConsumerState<_AutofillSection>
+    with WidgetsBindingObserver {
+  bool? _enabled;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh();
+  }
+
+  Future<void> _refresh() async {
+    final enabled = await ref
+        .read(sessionControllerProvider.notifier)
+        .isAutofillEnabled();
+    if (mounted && enabled != _enabled) {
+      setState(() => _enabled = enabled);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final enabled = _enabled;
+    return _Section(
+      title: l10n.autofill,
+      children: [
+        ListTile(
+          leading: const Icon(Icons.autorenew),
+          title: Text(l10n.autofill),
+          subtitle: Text(
+            enabled == null
+                ? l10n.autofillChecking
+                : (enabled ? l10n.autofillEnabled : l10n.autofillDisabled),
+          ),
+          trailing: enabled == true
+              ? const Icon(Icons.check_circle, color: Colors.green)
+              : const Icon(Icons.open_in_new),
+          onTap: () {
+            ref.read(sessionControllerProvider.notifier).openAutofillSettings();
+          },
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          child: Text(
+            l10n.autofillSub,
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 12),
+          ),
         ),
       ],
     );

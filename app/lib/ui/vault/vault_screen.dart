@@ -100,6 +100,7 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
       body: Column(
         children: [
           _header(l10n),
+          _autofillImportsBanner(),
           _searchBar(l10n),
           Expanded(
             child: _query.isEmpty
@@ -164,10 +165,51 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
     );
   }
 
+  Widget _autofillImportsBanner() {
+    final imported = ref.watch(sessionControllerProvider).lastAutofillImports;
+    if (imported <= 0) return const SizedBox.shrink();
+    final l10n = context.l10n;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      child: Material(
+        color: Theme.of(context).colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+          child: Row(
+            children: [
+              Icon(Icons.autorenew,
+                  size: 20, color: Theme.of(context).colorScheme.onSecondaryContainer),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.autofillImported(imported),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: Theme.of(context).colorScheme.onSecondaryContainer),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: l10n.close,
+                visualDensity: VisualDensity.compact,
+                onPressed: () => ref
+                    .read(sessionControllerProvider.notifier)
+                    .clearAutofillImportNotice(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _searchBar(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: TextField(
+        enableIMEPersonalizedLearning: false,
         controller: _search,
         onChanged: (v) => setState(() => _query = v.trim()),
         decoration: InputDecoration(
@@ -346,6 +388,7 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
       builder: (ctx) => AlertDialog(
         title: Text(initial == null ? ctx.l10n.newFolder : ctx.l10n.renameFolder),
         content: TextField(
+          enableIMEPersonalizedLearning: false,
           controller: controller,
           autofocus: true,
           decoration: InputDecoration(labelText: ctx.l10n.folderName),

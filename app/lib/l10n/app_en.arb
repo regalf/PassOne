@@ -151,6 +151,12 @@
   "totpAdded": "TOTP added to vault",
 
   "settingsTitle": "Settings",
+  "autofill": "Autofill",
+  "autofillSub": "When enabled, PassOne fills saved logins in other apps and browsers and captures new passwords to store in the vault.",
+  "autofillEnabled": "Active",
+  "autofillDisabled": "Disabled — tap to open the system settings",
+  "autofillChecking": "Checking…",
+  "autofillImported": "{count} passwords imported from autofill",
   "sectionGeneral": "General",
   "biometricEnabled": "Fingerprint unlock enabled",
   "biometricDisabled": "Fingerprint unlock disabled",

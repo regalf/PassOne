@@ -32,6 +32,7 @@ Future<String?> promptPassword(
             Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 16),
             TextFormField(
+              enableIMEPersonalizedLearning: false,
               autofocus: true,
               obscureText: true,
               decoration: InputDecoration(labelText: label),
@@ -42,6 +43,7 @@ Future<String?> promptPassword(
             if (requireConfirmation) ...[
               const SizedBox(height: 12),
               TextFormField(
+                enableIMEPersonalizedLearning: false,
                 obscureText: true,
                 decoration: InputDecoration(labelText: confirmLabel),
                 validator: (v) {

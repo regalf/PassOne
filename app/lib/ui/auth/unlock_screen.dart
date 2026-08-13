@@ -114,6 +114,7 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
                 ],
                 const SizedBox(height: 24),
                 TextField(
+                  enableIMEPersonalizedLearning: false,
                   controller: _password,
                   obscureText: _obscure,
                   autofocus: true,

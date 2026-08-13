@@ -154,6 +154,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 TextField(
+                  enableIMEPersonalizedLearning: false,
                   controller: _username,
                   decoration: InputDecoration(
                     labelText: context.l10n.username,
@@ -165,6 +166,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 12),
                 if (widget.inviteMode) ...[
                   TextField(
+                    enableIMEPersonalizedLearning: false,
                     controller: _invite,
                     decoration: InputDecoration(
                       labelText: context.l10n.inviteToken,
@@ -175,6 +177,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   const SizedBox(height: 12),
                 ],
                 TextField(
+                  enableIMEPersonalizedLearning: false,
                   controller: _password,
                   obscureText: _obscure,
                   decoration: InputDecoration(
@@ -190,6 +193,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  enableIMEPersonalizedLearning: false,
                   controller: _confirm,
                   obscureText: _obscure,
                   onSubmitted: (_) => _submit(),

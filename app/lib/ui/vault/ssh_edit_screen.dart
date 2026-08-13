@@ -126,6 +126,7 @@ class _SshEditScreenState extends ConsumerState<SshEditScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
+              enableIMEPersonalizedLearning: false,
               controller: _name,
               autofocus: _isNew,
               decoration: InputDecoration(
@@ -153,6 +154,7 @@ class _SshEditScreenState extends ConsumerState<SshEditScreen> {
             ),
             const SizedBox(height: 12),
             TextField(
+              enableIMEPersonalizedLearning: false,
               controller: _host,
               decoration: InputDecoration(
                 labelText: l10n.host,
@@ -163,6 +165,7 @@ class _SshEditScreenState extends ConsumerState<SshEditScreen> {
             ),
             const SizedBox(height: 12),
             TextField(
+              enableIMEPersonalizedLearning: false,
               controller: _username,
               decoration: InputDecoration(
                 labelText: l10n.username,
@@ -187,6 +190,7 @@ class _SshEditScreenState extends ConsumerState<SshEditScreen> {
             ),
             const SizedBox(height: 12),
             TextField(
+              enableIMEPersonalizedLearning: false,
               controller: _passphrase,
               obscureText: _obscurePassphrase,
               decoration: InputDecoration(
@@ -223,6 +227,7 @@ class _SshEditScreenState extends ConsumerState<SshEditScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextField(
+          enableIMEPersonalizedLearning: false,
           controller: controller,
           maxLines: maxLines,
           keyboardType: TextInputType.multiline,

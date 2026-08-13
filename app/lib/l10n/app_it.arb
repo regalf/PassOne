@@ -151,6 +151,12 @@
   "totpAdded": "TOTP aggiunto al vault",
 
   "settingsTitle": "Impostazioni",
+  "autofill": "Compilazione automatica",
+  "autofillSub": "Se attiva, PassOne compila gli accessi salvati in altre app e nel browser e cattura le nuove password da salvare nel vault.",
+  "autofillEnabled": "Attiva",
+  "autofillDisabled": "Disattiva — tocca per aprire le impostazioni di sistema",
+  "autofillChecking": "Verifica…",
+  "autofillImported": "{count} password importate dalla compilazione automatica",
   "sectionGeneral": "Generale",
   "biometricEnabled": "Accesso con impronta attivato",
   "biometricDisabled": "Accesso con impronta disattivato",

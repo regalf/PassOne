@@ -944,6 +944,42 @@ abstract class AppLocalizations {
   /// **'Settings'**
   String get settingsTitle;
 
+  /// No description provided for @autofill.
+  ///
+  /// In en, this message translates to:
+  /// **'Autofill'**
+  String get autofill;
+
+  /// No description provided for @autofillSub.
+  ///
+  /// In en, this message translates to:
+  /// **'When enabled, PassOne fills saved logins in other apps and browsers and captures new passwords to store in the vault.'**
+  String get autofillSub;
+
+  /// No description provided for @autofillEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get autofillEnabled;
+
+  /// No description provided for @autofillDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled — tap to open the system settings'**
+  String get autofillDisabled;
+
+  /// No description provided for @autofillChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get autofillChecking;
+
+  /// No description provided for @autofillImported.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} passwords imported from autofill'**
+  String autofillImported(Object count);
+
   /// No description provided for @sectionGeneral.
   ///
   /// In en, this message translates to:

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,7 @@ import '../api/client.dart';
 import '../crypto/kdf.dart';
 import '../crypto/models.dart';
 import '../crypto/vault_crypto.dart';
+import 'autofill.dart';
 import 'biometrics.dart';
 import 'settings.dart';
 
@@ -36,6 +38,7 @@ class SessionState {
   final CachedVault? cache;
   final Uint8List? vaultKey;
   final VaultData? vault;
+  final int lastAutofillImports;
 
   const SessionState({
     this.status = AuthStatus.unauthenticated,
@@ -45,6 +48,7 @@ class SessionState {
     this.cache,
     this.vaultKey,
     this.vault,
+    this.lastAutofillImports = 0,
   });
 
   SessionState copyWith({
@@ -55,6 +59,7 @@ class SessionState {
     CachedVault? cache,
     Uint8List? vaultKey,
     VaultData? vault,
+    int? lastAutofillImports,
   }) {
     return SessionState(
       status: status ?? this.status,
@@ -64,6 +69,7 @@ class SessionState {
       cache: cache ?? this.cache,
       vaultKey: vaultKey ?? this.vaultKey,
       vault: vault ?? this.vault,
+      lastAutofillImports: lastAutofillImports ?? this.lastAutofillImports,
     );
   }
 }
@@ -82,6 +88,9 @@ class SessionController extends StateNotifier<SessionState> {
   // screen must then skip the automatic biometric prompt (otherwise the
   // fingerprint read right after the tap unlocks the vault immediately).
   bool _manualLock = false;
+  // Native autofill bridge and the per-unlock snapshot key (held in memory).
+  final AutofillBridge _autofill = AutofillBridge();
+  Uint8List? _autofillKey;
 
   SessionController(this._repo, {BiometricService? biometrics})
       : _biometrics = biometrics ?? BiometricService(),
@@ -289,6 +298,7 @@ class SessionController extends StateNotifier<SessionState> {
       vault: vaultData,
     );
     _scheduleLock();
+    unawaited(_setupAutofill(vaultKey, vaultData));
   }
 
   /// Offline unlock: derives the key locally and decrypts the cache.
@@ -327,6 +337,7 @@ class SessionController extends StateNotifier<SessionState> {
       vault: vaultData,
     );
     _scheduleLock();
+    unawaited(_setupAutofill(vaultKey, vaultData));
     // Legacy cache holding a plaintext token: re-encrypt and persist it now.
     if (cache.tokenNonce.isEmpty && token != null) {
       final migrated = await cache.reencryptToken(vaultKey, token);
@@ -431,6 +442,7 @@ class SessionController extends StateNotifier<SessionState> {
         vault: vaultData,
       );
       _scheduleLock();
+      unawaited(_setupAutofill(vaultKey, vaultData));
       if (cache.tokenNonce.isEmpty && token != null) {
         final migrated = await cache.reencryptToken(vaultKey, token);
         await _repo.saveCache(migrated);
@@ -465,6 +477,12 @@ class SessionController extends StateNotifier<SessionState> {
     _manualLock = manual;
     _lockTimer?.cancel();
     _lockTimer = null;
+    // The autofill session key is wiped: the native service can no longer
+    // decrypt the snapshot and stops offering autofill until the next unlock.
+    if (_autofillSupported) {
+      _autofillKey = null;
+      unawaited(_autofill.clearSessionKey());
+    }
     // State built explicitly: copyWith cannot wipe vaultKey/vault/token
     // (it uses `??`), so here the secrets are really removed from memory.
     // The session token is NOT kept: it is restored from the encrypted cache
@@ -544,6 +562,7 @@ class SessionController extends StateNotifier<SessionState> {
         );
         await _updateCache(
             blob: blob, nonce: nonce, revision: newRev, remote: remote);
+        unawaited(_syncAutofillSnapshot(current));
         return;
       } on ApiException catch (e) {
         if (!e.isConflict) rethrow;
@@ -575,6 +594,7 @@ class SessionController extends StateNotifier<SessionState> {
         nonce: latest.nonce,
         revision: latest.revision,
         remote: true);
+    unawaited(_syncAutofillSnapshot(merged));
   }
 
   Future<void> _updateCache({
@@ -609,6 +629,10 @@ class SessionController extends StateNotifier<SessionState> {
         await client.logout(token);
       } catch (_) {}
     }
+    if (_autofillSupported) {
+      _autofillKey = null;
+      unawaited(_autofill.clearSessionKey());
+    }
     await _biometrics.deleteBioKey();
     _lockTimer?.cancel();
     await _repo.clearCache();
@@ -623,6 +647,10 @@ class SessionController extends StateNotifier<SessionState> {
       try {
         await client.logoutAll(token);
       } catch (_) {}
+    }
+    if (_autofillSupported) {
+      _autofillKey = null;
+      unawaited(_autofill.clearSessionKey());
     }
     await _biometrics.deleteBioKey();
     await _repo.clearCache();
@@ -890,6 +918,120 @@ class SessionController extends StateNotifier<SessionState> {
       throw StateError('vault non sbloccato');
     }
     await saveVault(mutate(current));
+  }
+
+  // ---- system autofill ------------------------------------------------
+
+  /// True when running on Android (the only platform with the native service).
+  bool get _autofillSupported => Platform.isAndroid;
+
+  /// Sets up the native autofill service after an unlock: generates a fresh
+  /// per-unlock snapshot key, sends it with the encrypted snapshot, and imports
+  /// any credentials the system captured while the vault was locked.
+  Future<void> _setupAutofill(Uint8List vaultKey, VaultData vault) async {
+    if (!_autofillSupported) return;
+    try {
+      _autofillKey = VaultCrypto.randomBytes(32);
+      final blob = await AutofillBridge.encryptSnapshot(_autofillKey!, vault);
+      await _autofill.setSessionKey(_autofillKey!);
+      await _autofill.syncSnapshot(blob);
+      // The user may have locked the vault while this setup was in flight: a
+      // session key must never survive a lock.
+      if (state.status != AuthStatus.unlocked) {
+        await _autofill.clearSessionKey();
+        _autofillKey = null;
+        return;
+      }
+      final pending = await _autofill.pullPendingSaves();
+      if (pending.isNotEmpty) {
+        await _importPendingSaves(pending);
+      }
+    } catch (_) {
+      // Channel unavailable (e.g. tests or non-Android host): nothing to do.
+      if (_autofillKey != null) {
+        await _autofill.clearSessionKey();
+      }
+      _autofillKey = null;
+    }
+  }
+
+  /// Re-encrypts the snapshot with the current session key after a vault change.
+  Future<void> _syncAutofillSnapshot(VaultData vault) async {
+    final key = _autofillKey;
+    if (!_autofillSupported || key == null) return;
+    try {
+      final blob = await AutofillBridge.encryptSnapshot(key, vault);
+      await _autofill.syncSnapshot(blob);
+    } catch (_) {}
+  }
+
+  /// Imports credentials captured by the system autofill framework. Existing
+  /// entries (same url host + username) get the password updated; everything
+  /// else is added as a new entry. The result is synced once and the native
+  /// pending list is cleared.
+  Future<void> _importPendingSaves(List<PendingSave> pending) async {
+    final current = state.vault;
+    if (current == null) return;
+    var vault = current;
+    var imported = 0;
+    for (final p in pending) {
+      final host = _urlHost(p.url);
+      final existing = vault.entries.where((e) =>
+          e.username == p.username &&
+          (host == null || _urlHost(e.url) == host) &&
+          (p.password.isNotEmpty));
+      if (existing.isNotEmpty) {
+        final first = existing.first;
+        vault = vault.copyWith(
+          entries: vault.entries
+              .map((e) => e.id == first.id
+                  ? e.copyWith(password: p.password)
+                  : e)
+              .toList(),
+        );
+      } else {
+        vault = vault.copyWith(entries: [...vault.entries, p.toEntry()]);
+      }
+      imported++;
+    }
+    if (imported > 0) {
+      await saveVault(vault);
+      state = state.copyWith(lastAutofillImports: imported);
+    }
+    await _autofill.confirmPendingSaves();
+  }
+
+  /// Resets the "N passwords imported" notice shown on the vault screen.
+  void clearAutofillImportNotice() {
+    if (state.lastAutofillImports != 0) {
+      state = state.copyWith(lastAutofillImports: 0);
+    }
+  }
+
+  /// Whether PassOne is the active system autofill service (Android only).
+  Future<bool> isAutofillEnabled() async {
+    if (!_autofillSupported) return false;
+    try {
+      return await _autofill.isAutofillEnabled();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Opens the system screen to enable PassOne as autofill service.
+  Future<void> openAutofillSettings() async {
+    if (!_autofillSupported) return;
+    try {
+      await _autofill.openSystemSettings();
+    } catch (_) {}
+  }
+
+  static String? _urlHost(String url) {
+    final cleaned =
+        url.trim().replaceFirst(RegExp(r'^https?://', caseSensitive: false), '');
+    final host = cleaned.split('/').first.split(':').first.toLowerCase();
+    if (host.isEmpty) return null;
+    return host.startsWith('www.') ? host.substring(4) : host;
   }
 
   String _deviceName() {

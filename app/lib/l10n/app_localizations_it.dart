@@ -465,6 +465,28 @@ class AppLocalizationsIt extends AppLocalizations {
   String get settingsTitle => 'Impostazioni';
 
   @override
+  String get autofill => 'Compilazione automatica';
+
+  @override
+  String get autofillSub =>
+      'Se attiva, PassOne compila gli accessi salvati in altre app e nel browser e cattura le nuove password da salvare nel vault.';
+
+  @override
+  String get autofillEnabled => 'Attiva';
+
+  @override
+  String get autofillDisabled =>
+      'Disattiva — tocca per aprire le impostazioni di sistema';
+
+  @override
+  String get autofillChecking => 'Verifica…';
+
+  @override
+  String autofillImported(Object count) {
+    return '$count password importate dalla compilazione automatica';
+  }
+
+  @override
   String get sectionGeneral => 'Generale';
 
   @override

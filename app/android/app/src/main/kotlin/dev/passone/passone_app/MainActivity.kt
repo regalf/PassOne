@@ -1,16 +1,20 @@
 package dev.passone.passone_app
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
+import android.provider.Settings
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.Result
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : FlutterFragmentActivity() {
     private val channel = "passone/save_file"
@@ -53,6 +57,87 @@ class MainActivity : FlutterFragmentActivity() {
                     else -> result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "passone/autofill")
+            .setMethodCallHandler { call, result ->
+                val store = AutofillStore(this)
+                when (call.method) {
+                    "setSessionKey" -> {
+                        val key = call.argument<String>("key")
+                        if (key == null) result.error("bad_key", "Missing key", null)
+                        else {
+                            store.setSessionKey(key)
+                            result.success(null)
+                        }
+                    }
+                    "clearSessionKey" -> {
+                        store.clearSessionKey()
+                        result.success(null)
+                    }
+                    "syncSnapshot" -> {
+                        val blob = call.argument<String>("blob")
+                        if (blob == null) result.error("bad_blob", "Missing blob", null)
+                        else {
+                            store.saveSnapshot(blob)
+                            result.success(null)
+                        }
+                    }
+                    "pullPendingSaves" -> {
+                        val raw = store.loadPending()
+                        val list: List<Any> = if (raw == null) emptyList() else {
+                            val clear = store.decrypt(raw)
+                            if (clear == null) {
+                                emptyList()
+                            } else {
+                                val array = JSONArray(String(clear, Charsets.UTF_8))
+                                (0 until array.length()).map { i ->
+                                    val o = array.getJSONObject(i)
+                                    mapOf(
+                                        "id" to o.optString("id"),
+                                        "name" to o.optString("name"),
+                                        "username" to o.optString("username"),
+                                        "password" to o.optString("password"),
+                                        "url" to o.optString("url"),
+                                        "notes" to o.optString("notes"),
+                                        "createdAt" to o.optLong("createdAt"),
+                                        "updatedAt" to o.optLong("updatedAt"),
+                                    )
+                                }
+                            }
+                        }
+                        result.success(list)
+                    }
+                    "confirmPendingSaves" -> {
+                        store.clearPending()
+                        result.success(null)
+                    }
+                    "isEnabled" -> result.success(isAutofillServiceEnabled())
+                    "openSettings" -> {
+                        try {
+                            startActivity(
+                                Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE).apply {
+                                    data = Uri.parse("package:$packageName")
+                                },
+                            )
+                        } catch (e: Exception) {
+                            // Some OEMs block the request intent; open the general
+                            // accessibility/autofill settings screen instead.
+                            runCatching {
+                                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                            }
+                        }
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    /// True when PassOne is the active system autofill service.
+    private fun isAutofillServiceEnabled(): Boolean {
+        val component = ComponentName(this, PassAutofillService::class.java).flattenToString()
+        // Settings.Secure.AUTOFILL_SERVICE is a hidden constant: use the literal.
+        val current = Settings.Secure.getString(contentResolver, "autofill_service")
+        return current?.split(":")?.any { it.equals(component, ignoreCase = true) } == true
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
