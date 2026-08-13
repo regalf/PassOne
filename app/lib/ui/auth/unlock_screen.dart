@@ -25,13 +25,16 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
   void initState() {
     super.initState();
     // As soon as the lock screen appears, if biometrics are enabled the prompt
-    // fires on its own (once per screen). The plugin re-authenticates on every
-    // read, so the prompt cannot be skipped.
+    // fires on its own (once per screen) — unless the vault was locked
+    // manually with the Lock button, in which case the user must explicitly
+    // choose to unlock (password or fingerprint button).
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _autoPrompted) return;
+      final notifier = ref.read(sessionControllerProvider.notifier);
+      final manualLock = notifier.consumeManualLock();
       final enabled =
           ref.read(sessionControllerProvider).settings.biometricsEnabled;
-      if (enabled) {
+      if (enabled && !manualLock) {
         _autoPrompted = true;
         _unlockWithBiometrics();
       }

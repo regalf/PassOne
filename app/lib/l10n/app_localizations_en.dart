@@ -182,6 +182,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get searchVault => 'Search vault…';
 
   @override
+  String get tabVault => 'Vault';
+
+  @override
   String get tabPasswords => 'Passwords';
 
   @override
@@ -201,6 +204,53 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsTooltip => 'Settings';
+
+  @override
+  String get sectionCategories => 'Categories';
+
+  @override
+  String get folders => 'Folders';
+
+  @override
+  String get folder => 'Folder';
+
+  @override
+  String get noFolder => 'No folder';
+
+  @override
+  String get newFolder => 'New folder';
+
+  @override
+  String get renameFolder => 'Rename folder';
+
+  @override
+  String get deleteFolder => 'Delete folder';
+
+  @override
+  String get deleteFolderTitle => 'Delete the folder?';
+
+  @override
+  String deleteFolderBody(Object name) {
+    return '\"$name\" will be removed. Its entries stay in the vault without a folder.';
+  }
+
+  @override
+  String get addFolder => 'Add';
+
+  @override
+  String get folderName => 'Folder name';
+
+  @override
+  String get noFolders =>
+      'No folders yet. Create one to organize your entries.';
+
+  @override
+  String get emptyFolder => 'No entries in this folder.';
+
+  @override
+  String entryCount(Object count) {
+    return '$count items';
+  }
 
   @override
   String get emptyVault =>
@@ -519,7 +569,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get english => 'English';
 
   @override
-  String get lockAlways => 'Always (not recommended)';
+  String get lockAlways => 'Always';
 
   @override
   String lockMinutes(Object minutes) {

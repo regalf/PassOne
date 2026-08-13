@@ -416,6 +416,12 @@ abstract class AppLocalizations {
   /// **'Search vault…'**
   String get searchVault;
 
+  /// No description provided for @tabVault.
+  ///
+  /// In en, this message translates to:
+  /// **'Vault'**
+  String get tabVault;
+
   /// No description provided for @tabPasswords.
   ///
   /// In en, this message translates to:
@@ -457,6 +463,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get settingsTooltip;
+
+  /// No description provided for @sectionCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories'**
+  String get sectionCategories;
+
+  /// No description provided for @folders.
+  ///
+  /// In en, this message translates to:
+  /// **'Folders'**
+  String get folders;
+
+  /// No description provided for @folder.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder'**
+  String get folder;
+
+  /// No description provided for @noFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'No folder'**
+  String get noFolder;
+
+  /// No description provided for @newFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'New folder'**
+  String get newFolder;
+
+  /// No description provided for @renameFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename folder'**
+  String get renameFolder;
+
+  /// No description provided for @deleteFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete folder'**
+  String get deleteFolder;
+
+  /// No description provided for @deleteFolderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete the folder?'**
+  String get deleteFolderTitle;
+
+  /// No description provided for @deleteFolderBody.
+  ///
+  /// In en, this message translates to:
+  /// **'\"{name}\" will be removed. Its entries stay in the vault without a folder.'**
+  String deleteFolderBody(Object name);
+
+  /// No description provided for @addFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get addFolder;
+
+  /// No description provided for @folderName.
+  ///
+  /// In en, this message translates to:
+  /// **'Folder name'**
+  String get folderName;
+
+  /// No description provided for @noFolders.
+  ///
+  /// In en, this message translates to:
+  /// **'No folders yet. Create one to organize your entries.'**
+  String get noFolders;
+
+  /// No description provided for @emptyFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'No entries in this folder.'**
+  String get emptyFolder;
+
+  /// No description provided for @entryCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} items'**
+  String entryCount(Object count);
 
   /// No description provided for @emptyVault.
   ///
@@ -1055,7 +1145,7 @@ abstract class AppLocalizations {
   /// No description provided for @lockAlways.
   ///
   /// In en, this message translates to:
-  /// **'Always (not recommended)'**
+  /// **'Always'**
   String get lockAlways;
 
   /// No description provided for @lockMinutes.

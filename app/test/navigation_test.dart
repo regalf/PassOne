@@ -102,6 +102,22 @@ class _FakeBiometricsController extends SessionController {
   _FakeBiometricsController()
       : super(SettingsRepository());
   int bioCalls = 0;
+  void startUnlocked() {
+    state = SessionState(
+      status: AuthStatus.unlocked,
+      settings: const AppSettings(biometricsEnabled: true),
+      user: UserInfo(
+        id: 1,
+        username: 'dave',
+        status: 'active',
+        vaultRevision: 1,
+        recoveryEnabled: false,
+        kdfAlgorithm: 'argon2id',
+      ),
+      vault: VaultData(),
+      vaultKey: Uint8List(32),
+    );
+  }
   void startLocked() {
     state = SessionState(
       status: AuthStatus.locked,
@@ -188,7 +204,7 @@ Widget _app(SessionController c) => ProviderScope(
     );
 
 Future<void> _fill(WidgetTester tester, int index, String text) async {
-  await tester.enterText(find.byType(TextField).at(index), text);
+  await tester.enterText(find.byType(TextField).hitTestable().at(index), text);
 }
 
 /// First step of the login flow: enters the server address and continues
@@ -266,9 +282,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.settings_outlined));
     await tester.pumpAndSettle();
-    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Server address'), findsOneWidget,
+        reason: 'the settings tab shows its content');
     await tester.scrollUntilVisible(find.text('Log out'), 200,
         scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('Log out'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Log out'));
     await tester.pumpAndSettle();
     expect(find.text('Continue'), findsOneWidget,
@@ -311,7 +330,24 @@ void main() {
     expect(find.text('Vault locked'), findsNothing);
     expect(find.widgetWithText(FloatingActionButton, 'New'), findsOneWidget);
   });
-  testWidgets('the FAB switches between "New" and "Add" depending on the tab',
+  testWidgets('the Lock button locks and does not fire the biometric prompt',
+      (tester) async {
+    final c = _FakeBiometricsController();
+    await tester.pumpWidget(_app(c));
+    await tester.pumpAndSettle();
+    c.startUnlocked();
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FloatingActionButton, 'New'), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.lock_outline));
+    await tester.pumpAndSettle();
+    expect(c.bioCalls, 0,
+        reason: 'a manual lock must not start the prompt automatically');
+    expect(find.text('Vault locked'), findsOneWidget,
+        reason: 'after a manual lock the vault stays on the unlock screen');
+    expect(find.widgetWithText(FloatingActionButton, 'New'), findsNothing);
+  });
+  testWidgets('the FAB adapts to the open list (New on home, Add on TOTP)',
       (tester) async {
     final c = _FakeVaultController();
     await tester.pumpWidget(_app(c));
@@ -324,14 +360,19 @@ void main() {
     await tester.pump();
     expect(find.widgetWithText(FloatingActionButton, 'New'), findsOneWidget);
     await tester.tap(find.text('TOTP'));
-    await tester.pump();
-    expect(find.widgetWithText(FloatingActionButton, 'Add'),
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FloatingActionButton, 'Add').hitTestable(),
         findsOneWidget);
-    expect(find.widgetWithText(FloatingActionButton, 'New'), findsNothing);
+    expect(find.widgetWithText(FloatingActionButton, 'New').hitTestable(),
+        findsNothing);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Passwords'));
-    await tester.pump();
-    expect(find.widgetWithText(FloatingActionButton, 'New'), findsOneWidget);
-    expect(find.widgetWithText(FloatingActionButton, 'Add'), findsNothing);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(FloatingActionButton, 'New').hitTestable(),
+        findsOneWidget);
+    expect(find.widgetWithText(FloatingActionButton, 'Add').hitTestable(),
+        findsNothing);
   });
   testWidgets('the TOTP list shows the 6-digit code and the countdown',
       (tester) async {
@@ -345,7 +386,7 @@ void main() {
     ]);
     await tester.pump();
     await tester.tap(find.text('TOTP'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     // Let generateTotp (microtask) and the first refresh complete.
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('GitHub'), findsOneWidget);
@@ -366,7 +407,7 @@ void main() {
     ]);
     await tester.pump();
     await tester.tap(find.text('TOTP'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 50));
     final codeFinder = find.textContaining(RegExp(r'^\d{6}$'));
     expect(codeFinder, findsOneWidget);
@@ -390,7 +431,7 @@ void main() {
     expect(matchesAnyWindow(copied!, secret, DateTime.now()), isTrue,
         reason: 'the copied code ($copied) does not match RFC 6238');
   });
-  testWidgets('an SSH key can be added from the SSH tab and appears in the '
+  testWidgets('an SSH key can be added from the SSH list and appears in the '
       'list', (tester) async {
     final c = _FakeVaultController();
     await tester.pumpWidget(_app(c));
@@ -398,10 +439,11 @@ void main() {
     c.start();
     await tester.pump();
     await tester.tap(find.text('SSH'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.text('No SSH keys.\nPress "New" to add a key.'),
         findsOneWidget);
-    await tester.tap(find.widgetWithText(FloatingActionButton, 'New'));
+    await tester
+        .tap(find.widgetWithText(FloatingActionButton, 'New').hitTestable());
     await tester.pumpAndSettle();
     expect(find.text('New SSH key'), findsOneWidget);
     await _fill(tester, 0, 'work-key');
@@ -414,9 +456,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('work-key'), findsOneWidget);
     expect(find.text('git @ github.com'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Passwords'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.text('work-key'), findsNothing,
-        reason: 'SSH keys must not appear in the Passwords tab');
+        reason: 'SSH keys must not appear in the Passwords list');
   });
 }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../l10n/l10n.dart';
+import '../../state/biometrics.dart';
 import '../../state/providers.dart';
 import '../../state/session.dart';
 import '../../state/settings.dart';
@@ -63,10 +64,7 @@ class SettingsScreen extends ConsumerWidget {
             title: l10n.sectionSecurity,
             children: [
               ListTile(
-                leading: const Icon(Icons.timer_outlined),
                 title: Text(l10n.autoLock),
-                subtitle: Text(l10n.autoLockSub(
-                    _lockLabel(l10n, session.settings.lockTimeout))),
                 trailing: DropdownButton<LockTimeout>(
                   value: session.settings.lockTimeout,
                   underline: const SizedBox.shrink(),
@@ -180,8 +178,11 @@ class SettingsScreen extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.biometricEnableFailed(e))));
+        final message = e is BiometricCanceledException
+            ? context.l10n.bioCanceled
+            : context.l10n.biometricEnableFailed(e);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(message)));
       }
     }
   }

@@ -25,6 +25,10 @@ class _FakeBiometrics extends BiometricService {
   Future<bool> isAvailable() async => true;
 
   @override
+  Future<BiometricReadResult> authenticate() async =>
+      BiometricReadResult.success;
+
+  @override
   Future<void> storeBioKey(Uint8List bioKey) async {
     stored = bioKey;
   }
@@ -41,6 +45,9 @@ class _FakeBiometrics extends BiometricService {
   Future<void> deleteBioKey() async {
     stored = null;
   }
+
+  @override
+  Future<bool> hasBioKey() async => stored != null;
 }
 
 void main() {

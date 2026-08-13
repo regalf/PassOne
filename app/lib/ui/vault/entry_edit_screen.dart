@@ -1,25 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../crypto/models.dart';
 import '../../l10n/l10n.dart';
+import '../../state/providers.dart';
 import '../vault/generator_dialog.dart';
 
-class EntryEditScreen extends StatefulWidget {
+class EntryEditScreen extends ConsumerStatefulWidget {
   final VaultEntry? entry;
+  final String? initialFolderId;
 
-  const EntryEditScreen({super.key, this.entry});
+  const EntryEditScreen({super.key, this.entry, this.initialFolderId});
 
   @override
-  State<EntryEditScreen> createState() => _EntryEditScreenState();
+  ConsumerState<EntryEditScreen> createState() => _EntryEditScreenState();
 }
 
-class _EntryEditScreenState extends State<EntryEditScreen> {
+class _EntryEditScreenState extends ConsumerState<EntryEditScreen> {
   late final TextEditingController _name;
   late final TextEditingController _url;
   late final TextEditingController _username;
   late final TextEditingController _password;
   late final TextEditingController _notes;
+  late String _folderId;
   bool _obscure = true;
 
   bool get _isNew => widget.entry == null;
@@ -33,6 +37,7 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
     _username = TextEditingController(text: e?.username ?? '');
     _password = TextEditingController(text: e?.password ?? '');
     _notes = TextEditingController(text: e?.notes ?? '');
+    _folderId = e?.folderId ?? widget.initialFolderId ?? '';
   }
 
   @override
@@ -64,12 +69,14 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
           .showSnackBar(SnackBar(content: Text(context.l10n.enterName)));
       return;
     }
+    final folderId = _folderId.isEmpty ? null : _folderId;
     final entry = widget.entry?.copyWith(
           name: name,
           url: _url.text.trim(),
           username: _username.text.trim(),
           password: _password.text,
           notes: _notes.text,
+          folderId: () => folderId,
         ) ??
         VaultEntry.create(
           name: name,
@@ -77,8 +84,25 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
           username: _username.text.trim(),
           password: _password.text,
           notes: _notes.text,
+          folderId: folderId,
         );
     Navigator.of(context).pop(entry);
+  }
+
+  Widget _folderField(List<VaultFolder> folders) {
+    return DropdownButtonFormField<String>(
+      initialValue: _folderId,
+      decoration: InputDecoration(
+        labelText: context.l10n.folder,
+        prefixIcon: const Icon(Icons.folder_outlined),
+      ),
+      items: [
+        DropdownMenuItem(value: '', child: Text(context.l10n.noFolder)),
+        for (final f in folders)
+          DropdownMenuItem(value: f.id, child: Text(f.name)),
+      ],
+      onChanged: (v) => setState(() => _folderId = v ?? ''),
+    );
   }
 
   @override
@@ -107,6 +131,9 @@ class _EntryEditScreenState extends State<EntryEditScreen> {
                 prefixIcon: const Icon(Icons.label_outline),
               ),
             ),
+            const SizedBox(height: 12),
+            _folderField(ref.watch(sessionControllerProvider).vault?.folders ??
+                const []),
             const SizedBox(height: 12),
             TextField(
               controller: _url,

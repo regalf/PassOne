@@ -181,6 +181,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get searchVault => 'Cerca nel vault…';
 
   @override
+  String get tabVault => 'Vault';
+
+  @override
   String get tabPasswords => 'Password';
 
   @override
@@ -200,6 +203,53 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get settingsTooltip => 'Impostazioni';
+
+  @override
+  String get sectionCategories => 'Categorie';
+
+  @override
+  String get folders => 'Cartelle';
+
+  @override
+  String get folder => 'Cartella';
+
+  @override
+  String get noFolder => 'Nessuna cartella';
+
+  @override
+  String get newFolder => 'Nuova cartella';
+
+  @override
+  String get renameFolder => 'Rinomina cartella';
+
+  @override
+  String get deleteFolder => 'Elimina cartella';
+
+  @override
+  String get deleteFolderTitle => 'Eliminare la cartella?';
+
+  @override
+  String deleteFolderBody(Object name) {
+    return '\"$name\" verrà rimossa. Le sue voci restano nel vault senza cartella.';
+  }
+
+  @override
+  String get addFolder => 'Aggiungi';
+
+  @override
+  String get folderName => 'Nome cartella';
+
+  @override
+  String get noFolders =>
+      'Nessuna cartella. Creane una per organizzare le tue voci.';
+
+  @override
+  String get emptyFolder => 'Nessuna voce in questa cartella.';
+
+  @override
+  String entryCount(Object count) {
+    return '$count elementi';
+  }
 
   @override
   String get emptyVault =>
@@ -521,7 +571,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get english => 'English';
 
   @override
-  String get lockAlways => 'Sempre (sconsigliato)';
+  String get lockAlways => 'Sempre';
 
   @override
   String lockMinutes(Object minutes) {

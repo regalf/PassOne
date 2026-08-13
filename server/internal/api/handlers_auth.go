@@ -207,24 +207,29 @@ func (s *Server) handlePrelogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username := strings.TrimSpace(req.Username)
-	resp := map[string]any{
-		"username": username,
-		"status":   "unknown",
-		"salt_b64": crypto.EncodeBase64(mustRandom(16)),
-		"kdf": kdfInput{
-			Algorithm: "argon2id",
-			Params:    store.KDFParams{MemoryKiB: 65536, Iterations: 3, Parallelism: 4},
-		},
+	// The response is built from the same code path for existing and unknown
+	// users (decoy salt + default KDF for the latter): both branches run the
+	// same DB lookup and do the same amount of work, so the timing does not
+	// leak whether the username exists.
+	status := "unknown"
+	salt := mustRandom(16)
+	kdf := kdfInput{
+		Algorithm: "argon2id",
+		Params:    store.KDFParams{MemoryKiB: 65536, Iterations: 3, Parallelism: 4},
 	}
-	u, err := s.store.GetUserByUsername(username)
-	if err == nil {
-		resp["status"] = u.Status
+	if u, err := s.store.GetUserByUsername(username); err == nil {
+		status = u.Status
 		if u.Salt != nil {
-			resp["salt_b64"] = crypto.EncodeBase64(u.Salt)
+			salt = u.Salt
 		}
-		resp["kdf"] = kdfInput{Algorithm: u.KDFAlgorithm, Params: u.KDFParams}
+		kdf = kdfInput{Algorithm: u.KDFAlgorithm, Params: u.KDFParams}
 	}
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"username": username,
+		"status":   status,
+		"salt_b64": crypto.EncodeBase64(salt),
+		"kdf":      kdf,
+	})
 }
 
 type loginRequest struct {

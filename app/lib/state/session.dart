@@ -74,6 +74,14 @@ class SessionController extends StateNotifier<SessionState> {
   final Kdf _kdf = Kdf();
   PassOneClient? _client;
   Timer? _lockTimer;
+  // Monotonic idle counter: Timer pauses while the app is backgrounded, so
+  // the idle time is measured with a stopwatch and the remaining time is
+  // re-scheduled when the app returns to the foreground.
+  final Stopwatch _idle = Stopwatch()..start();
+  // True when the last lock came from the explicit Lock button: the unlock
+  // screen must then skip the automatic biometric prompt (otherwise the
+  // fingerprint read right after the tap unlocks the vault immediately).
+  bool _manualLock = false;
 
   SessionController(this._repo, {BiometricService? biometrics})
       : _biometrics = biometrics ?? BiometricService(),
@@ -317,12 +325,30 @@ class SessionController extends StateNotifier<SessionState> {
       vault: vaultData,
     );
     _scheduleLock();
+    _repairBioKey();
+  }
+
+  /// If biometrics are enabled but the bioKey is missing or unreadable (e.g.
+  /// legacy data written with the old biometric cipher), re-store a fresh
+  /// bioKey and re-wrap the vaultKey. Runs after a successful password unlock,
+  /// where the vaultKey is available. Failures are ignored: the user can still
+  /// unlock with the password.
+  Future<void> _repairBioKey() async {
+    if (!state.settings.biometricsEnabled) return;
+    try {
+      if (!await _biometrics.hasBioKey()) {
+        await enableBiometrics(confirm: false);
+      }
+    } catch (_) {}
   }
 
   /// Enables biometric access: generates a bioKey, stores it in the Keystore
   /// (gated by biometrics) and wraps the current vaultKey. Requires the
   /// unlocked state: the vaultKey is in memory.
-  Future<void> enableBiometrics() async {
+  ///
+  /// When [confirm] is true (default, settings toggle) a fingerprint prompt is
+  /// shown first: the bioKey is only created after a successful match.
+  Future<void> enableBiometrics({bool confirm = true}) async {
     final cache = state.cache;
     final vaultKey = state.vaultKey;
     if (cache == null || vaultKey == null) {
@@ -330,6 +356,15 @@ class SessionController extends StateNotifier<SessionState> {
     }
     if (!await _biometrics.isAvailable()) {
       throw StateError('biometria non disponibile su questo dispositivo');
+    }
+    if (confirm) {
+      final auth = await _biometrics.authenticate();
+      if (auth == BiometricReadResult.canceled) {
+        throw const BiometricCanceledException();
+      }
+      if (auth != BiometricReadResult.success) {
+        throw StateError('biometria non disponibile su questo dispositivo');
+      }
     }
     final bioKey = VaultCrypto.randomBytes(32);
     final bioWrapped = await VaultCrypto.wrapKey(bioKey, vaultKey);
@@ -408,8 +443,11 @@ class SessionController extends StateNotifier<SessionState> {
         bioWrappedKey: bioWrapped,
       );
 
-  /// Locks the vault: wipes the keys from memory.
-  void lock() {
+  /// Locks the vault: wipes the keys from memory. [manual] is true when the
+  /// user pressed the Lock button (the unlock screen skips the automatic
+  /// biometric prompt in that case).
+  void lock({bool manual = false}) {
+    _manualLock = manual;
     _lockTimer?.cancel();
     _lockTimer = null;
     // State built explicitly: copyWith cannot wipe vaultKey/vault
@@ -423,10 +461,20 @@ class SessionController extends StateNotifier<SessionState> {
     );
   }
 
+  /// Reads and clears the manual-lock flag for the current lock screen.
+  bool consumeManualLock() {
+    final manual = _manualLock;
+    _manualLock = false;
+    return manual;
+  }
+
   void _scheduleLock() {
     _lockTimer?.cancel();
     final minutes = state.settings.lockTimeout.minutes;
     if (minutes < 0) return;
+    _idle
+      ..reset()
+      ..start();
     _lockTimer = Timer(Duration(minutes: minutes), lock);
   }
 
@@ -435,6 +483,23 @@ class SessionController extends StateNotifier<SessionState> {
     if (state.status == AuthStatus.unlocked) {
       _scheduleLock();
     }
+  }
+
+  /// Called when the app returns to the foreground: if the idle time exceeded
+  /// the lock timeout the vault locks immediately, otherwise the remaining
+  /// time is re-scheduled from the monotonic stopwatch (a plain Timer pauses
+  /// while the isolate is suspended, so it would fire too late).
+  void checkResumed() {
+    if (state.status != AuthStatus.unlocked) return;
+    final minutes = state.settings.lockTimeout.minutes;
+    if (minutes < 0) return;
+    final remaining = Duration(minutes: minutes) - _idle.elapsed;
+    if (remaining <= Duration.zero) {
+      lock();
+      return;
+    }
+    _lockTimer?.cancel();
+    _lockTimer = Timer(remaining, lock);
   }
 
   /// Updates the entries in memory and syncs with the server (LWW).
@@ -737,7 +802,72 @@ class SessionController extends StateNotifier<SessionState> {
     }
     final merged = byId.values.toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-    return VaultData(entries: merged);
+
+    final foldersById = <String, VaultFolder>{};
+    for (final f in local.folders) {
+      foldersById[f.id] = f;
+    }
+    for (final f in remote.folders) {
+      final existing = foldersById[f.id];
+      if (existing == null || f.updatedAt.isAfter(existing.updatedAt)) {
+        foldersById[f.id] = f;
+      }
+    }
+    final mergedFolders = foldersById.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+    return VaultData(entries: merged, folders: mergedFolders);
+  }
+
+  /// Adds a folder, persists and syncs the vault.
+  Future<VaultFolder> addFolder(String name) {
+    final folder = VaultFolder.create(name: name);
+    return _mutateVault((vault) => VaultData(
+          entries: vault.entries,
+          folders: [...vault.folders, folder],
+        )).then((_) => folder);
+  }
+
+  /// Renames a folder, persists and syncs the vault.
+  Future<void> renameFolder(String folderId, String name) {
+    return _mutateVault((vault) => VaultData(
+          entries: vault.entries,
+          folders: vault.folders
+              .map((f) => f.id == folderId ? f.copyWith(name: name) : f)
+              .toList(),
+        ));
+  }
+
+  /// Deletes a folder and removes it from every entry, persists and syncs.
+  Future<void> deleteFolder(String folderId) {
+    return _mutateVault((vault) => VaultData(
+          entries: vault.entries
+              .map((e) => e.folderId == folderId
+                  ? e.copyWith(folderId: () => null)
+                  : e)
+              .toList(),
+          folders: vault.folders.where((f) => f.id != folderId).toList(),
+        ));
+  }
+
+  /// Moves an entry into/out of a folder, persists and syncs.
+  Future<void> moveEntryToFolder(String entryId, String? folderId) {
+    return _mutateVault((vault) => VaultData(
+          folders: vault.folders,
+          entries: vault.entries
+              .map((e) => e.id == entryId
+                  ? e.copyWith(folderId: () => folderId)
+                  : e)
+              .toList(),
+        ));
+  }
+
+  Future<void> _mutateVault(VaultData Function(VaultData) mutate) async {
+    final current = state.vault;
+    if (current == null) {
+      throw StateError('vault non sbloccato');
+    }
+    await saveVault(mutate(current));
   }
 
   String _deviceName() {

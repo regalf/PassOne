@@ -125,7 +125,20 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
         byId[e.id] = e;
       }
     }
-    return VaultData(entries: byId.values.toList());
+    final foldersById = <String, VaultFolder>{};
+    for (final f in current.folders) {
+      foldersById[f.id] = f;
+    }
+    for (final f in imported.folders) {
+      final existing = foldersById[f.id];
+      if (existing == null || f.updatedAt.isAfter(existing.updatedAt)) {
+        foldersById[f.id] = f;
+      }
+    }
+    return VaultData(
+      entries: byId.values.toList(),
+      folders: foldersById.values.toList(),
+    );
   }
 
   @override
@@ -246,15 +259,15 @@ List<List<String>> parseCsv(String content) {
 
 /// Imports a CSV file into a [VaultData].
 ///
-/// Supports plain exports (`name,url,username,password,notes`), Bitwarden
-/// exports (`name,notes,...,login_uri,login_username,login_password,
+/// Supports plain exports (`folder,name,url,username,password,notes`),
+/// Bitwarden exports (`name,notes,...,login_uri,login_username,login_password,
 /// login_totp`) and Firefox exports (`url,username,password,...`, which has
 /// no `name` column, so the entry name is derived from the URL).
 VaultData importCsv(String content) {
   final rows = parseCsv(content);
   if (rows.isEmpty) return VaultData();
   final headers = rows.first;
-  final entries = <VaultEntry>[];
+  final withFolder = <(VaultEntry, String)>[];
   for (final row in rows.skip(1)) {
     if (row.length < headers.length) continue;
     final m = <String, String>{};
@@ -264,16 +277,42 @@ VaultData importCsv(String content) {
     final totp = normalizeTotpSecret(m['login_totp'] ?? m['totp'] ?? '');
     final url = m['url'] ?? m['login_uri'] ?? '';
     final name = m['name'] ?? '';
-    entries.add(VaultEntry.create(
-      name: name.isNotEmpty ? name : nameFromUrl(url),
-      url: url,
-      username: m['username'] ?? m['login_username'] ?? '',
-      password: m['password'] ?? m['login_password'] ?? '',
-      notes: m['notes'] ?? '',
-      totpSecret: totp,
+    withFolder.add((
+      VaultEntry.create(
+        name: name.isNotEmpty ? name : nameFromUrl(url),
+        url: url,
+        username: m['username'] ?? m['login_username'] ?? '',
+        password: m['password'] ?? m['login_password'] ?? '',
+        notes: m['notes'] ?? '',
+        totpSecret: totp,
+      ),
+      m['folder'] ?? '',
     ));
   }
-  return VaultData(entries: entries);
+  return _attachCsvFolders(withFolder);
+}
+
+/// Creates [VaultFolder]s from the imported `folder` column (by name) and
+/// assigns each entry's [VaultEntry.folderId].
+VaultData _attachCsvFolders(List<(VaultEntry, String)> withFolder) {
+  final folderById = <String, String>{};
+  final folders = <VaultFolder>[];
+  String folderIdFor(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '';
+    if (folderById.containsKey(trimmed)) return folderById[trimmed]!;
+    final folder = VaultFolder.create(name: trimmed);
+    folders.add(folder);
+    folderById[trimmed] = folder.id;
+    return folder.id;
+  }
+
+  final entries = <VaultEntry>[];
+  for (final (e, folderName) in withFolder) {
+    final id = folderIdFor(folderName);
+    entries.add(id.isEmpty ? e : e.copyWith(folderId: () => id));
+  }
+  return VaultData(entries: entries, folders: folders);
 }
 
 /// Derives a readable entry name from a URL host, e.g.
@@ -307,6 +346,7 @@ VaultData importBitwardenCsv(String content) {
   final headers = rows.first.map((h) => h.trim().toLowerCase()).toList();
   String field(List<String> row, int i) =>
       i >= 0 && i < row.length ? row[i].trim() : '';
+  final iFolder = headers.indexOf('folder');
   final iName = headers.indexOf('name');
   final iType = headers.indexOf('type');
   final iUri = headers.indexOf('login_uri');
@@ -314,7 +354,7 @@ VaultData importBitwardenCsv(String content) {
   final iPassword = headers.indexOf('login_password');
   final iTotp = headers.indexOf('login_totp');
   final iNotes = headers.indexOf('notes');
-  final entries = <VaultEntry>[];
+  final withFolder = <(VaultEntry, String)>[];
   for (final row in rows.skip(1)) {
     if (row.every((f) => f.trim().isEmpty)) continue;
     final type = field(row, iType);
@@ -322,14 +362,17 @@ VaultData importBitwardenCsv(String content) {
     final uri = field(row, iUri);
     final name = field(row, iName);
     final totp = normalizeTotpSecret(field(row, iTotp));
-    entries.add(VaultEntry.create(
-      name: name.isNotEmpty ? name : nameFromUrl(uri),
-      url: uri,
-      username: field(row, iUsername),
-      password: field(row, iPassword),
-      notes: field(row, iNotes),
-      totpSecret: totp,
+    withFolder.add((
+      VaultEntry.create(
+        name: name.isNotEmpty ? name : nameFromUrl(uri),
+        url: uri,
+        username: field(row, iUsername),
+        password: field(row, iPassword),
+        notes: field(row, iNotes),
+        totpSecret: totp,
+      ),
+      field(row, iFolder),
     ));
   }
-  return VaultData(entries: entries);
+  return _attachCsvFolders(withFolder);
 }

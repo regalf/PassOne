@@ -57,6 +57,9 @@ class Check:
         self.ok = False
         self.version = ""
         self.extra = ""
+        # When True the result set before run() is preserved (used by checks
+        # whose outcome depends on filesystem state, e.g. the Android SDK).
+        self.locked = False
 
     def run(self):
         try:
@@ -75,7 +78,7 @@ class Check:
                     self.version = m.group(1)
                     self.ok = True
             else:
-                self.ok = p.returncode == 0
+                self.ok = self.ok if self.locked else p.returncode == 0
             if not self.extra:
                 self.extra = first
         except (OSError, subprocess.SubprocessError):
@@ -145,6 +148,7 @@ def check_environment():
         tools = sorted(p.name for p in build_tools.iterdir()) if build_tools.exists() else []
         c = Check("Android SDK", ["true"])
         c.ok = bool(apis) and bool(tools)
+        c.locked = True
         c.extra = f"{sdk} (API {','.join(apis)} | build-tools {','.join(tools)})"
         if not c.ok:
             c.hint = "SDK found but missing platforms or build-tools"

@@ -1,18 +1,18 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../crypto/models.dart';
-import '../../crypto/totp.dart';
+import '../../l10n/app_localizations.dart';
 import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
 import '../settings/settings_screen.dart';
 import 'entry_edit_screen.dart';
-import 'qr_scanner_screen.dart';
-import 'ssh_edit_screen.dart';
+import 'entry_list_screen.dart';
+import 'entry_tiles.dart';
 
+/// Shell with the bottom navigation (Vault / Settings). The Vault tab is the
+/// home hub (header, search, category cards, folders), Settings is a tab.
 class VaultScreen extends ConsumerStatefulWidget {
   const VaultScreen({super.key});
 
@@ -20,122 +20,307 @@ class VaultScreen extends ConsumerStatefulWidget {
   ConsumerState<VaultScreen> createState() => _VaultScreenState();
 }
 
-class _VaultScreenState extends ConsumerState<VaultScreen>
-    with SingleTickerProviderStateMixin {
-  String _query = '';
-  String _error = '';
-  int _tab = 0; // 0 = Password, 1 = TOTP, 2 = SSH
-  late final TabController _tabController = TabController(length: 3, vsync: this)
-    ..addListener(() {
-      final t = _tabController.index;
-      if (t != _tab) {
-        setState(() => _tab = t);
-        if (t == 1) _refreshTotp();
-      }
-    });
-  Timer? _ticker;
-  Map<String, String> _codes = {};
-  int _secondsLeft = 30;
-  bool _refreshing = false;
+class _VaultScreenState extends ConsumerState<VaultScreen> {
+  int _index = 0;
 
   @override
-  void initState() {
-    super.initState();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _refreshTotp());
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      body: _index == 0
+          ? const VaultHomeScreen()
+          : const SettingsScreen(),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) {
+          ref.read(sessionControllerProvider.notifier).touch();
+          setState(() => _index = i);
+        },
+        destinations: [
+          NavigationDestination(
+            icon: const Icon(Icons.key_outlined),
+            label: l10n.tabVault,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.settings_outlined),
+            label: l10n.settingsTitle,
+          ),
+        ],
+      ),
+    );
   }
+}
+
+/// Home hub: header with the user name, global search, category cards and the
+/// folders section.
+class VaultHomeScreen extends ConsumerStatefulWidget {
+  const VaultHomeScreen({super.key});
+
+  @override
+  ConsumerState<VaultHomeScreen> createState() => _VaultHomeScreenState();
+}
+
+class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
 
   @override
   void dispose() {
-    _ticker?.cancel();
-    _tabController.dispose();
+    _search.dispose();
     super.dispose();
   }
 
-  VaultData get _vault => ref.watch(sessionControllerProvider).vault ?? VaultData();
+  VaultData get _vault =>
+      ref.watch(sessionControllerProvider).vault ?? VaultData();
 
-  bool _matchesQuery(VaultEntry e) {
+  List<VaultEntry> get _searchResults {
     final q = _query.toLowerCase();
-    return q.isEmpty ||
-        e.name.toLowerCase().contains(q) ||
-        e.username.toLowerCase().contains(q) ||
-        e.url.toLowerCase().contains(q);
+    return _vault.entries
+        .where((e) =>
+            e.name.toLowerCase().contains(q) ||
+            e.username.toLowerCase().contains(q) ||
+            e.url.toLowerCase().contains(q))
+        .toList();
   }
 
-  List<VaultEntry> get _passwordEntries => _vault.entries
-      .where((e) => !e.isTotp && !e.isSsh && _matchesQuery(e))
-      .toList();
+  int _passwordCount() =>
+      _vault.entries.where((e) => !e.isTotp && !e.isSsh).length;
 
-  List<VaultEntry> get _totpEntries =>
-      _vault.entries.where((e) => e.isTotp && _matchesQuery(e)).toList();
+  int _totpCount() => _vault.entries.where((e) => e.isTotp).length;
 
-  List<VaultEntry> get _sshEntries =>
-      _vault.entries.where((e) => e.isSsh && _matchesQuery(e)).toList();
+  int _sshCount() => _vault.entries.where((e) => e.isSsh).length;
 
-  List<VaultEntry> get _allTotpEntries =>
-      (ref.read(sessionControllerProvider).vault ?? VaultData())
-          .entries
-          .where((e) => e.isTotp)
-          .toList();
+  int _folderCount(VaultFolder f) =>
+      _vault.entries.where((e) => e.folderId == f.id).length;
 
-  Future<void> _refreshTotp() async {
-    if (!mounted || _tab != 1 || _refreshing) return;
-    _refreshing = true;
-    try {
-      final entries = _allTotpEntries;
-      final now = DateTime.now();
-      final left = totpSecondsLeft(now);
-      final codes = <String, String>{};
-      for (final e in entries) {
-        final s = e.totpSecret;
-        if (s == null) continue;
-        try {
-          codes[e.id] = await generateTotp(s, time: now);
-        } catch (_) {
-          // Invalid secret: skip this code, keep the countdown running.
-        }
-      }
-      if (!mounted) return;
-      setState(() {
-        _codes = codes;
-        _secondsLeft = left;
-      });
-    } finally {
-      _refreshing = false;
-    }
-  }
-
-  Future<void> _scanQr() async {
-    ref.read(sessionControllerProvider.notifier).touch();
-    final data = await Navigator.of(context).push<TotpUriData>(
-        MaterialPageRoute(builder: (_) => const QrScannerScreen()));
-    if (data == null || !mounted) return;
-    final name = data.label.isNotEmpty ? data.label : 'TOTP';
-    final entry = VaultEntry.create(
-      name: name,
-      notes: context.l10n.totpNotes,
-      totpSecret: data.secret,
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return Scaffold(
+      body: Column(
+        children: [
+          _header(l10n),
+          _searchBar(l10n),
+          Expanded(
+            child: _query.isEmpty
+                ? _hub(l10n)
+                : EntryList(
+                    entries: _searchResults,
+                    kind: EntryListKind.all,
+                    noResultsQuery: _query,
+                  ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _newEntry,
+        icon: const Icon(Icons.add),
+        label: Text(l10n.newFab),
+      ),
     );
-    await _save([..._vault.entries, entry]);
-    _refreshTotp();
   }
 
-  void _copyTotp(VaultEntry e) async {
+  Widget _header(AppLocalizations l10n) {
+    final username = ref.watch(sessionControllerProvider).user?.username ?? '';
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 8, 4),
+        child: Row(
+          children: [
+            CircleAvatar(child: Text(_initial(username))),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.appTitle,
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelMedium
+                          ?.copyWith(
+                              color: Theme.of(context).colorScheme.primary)),
+                  Text(
+                    username.isEmpty ? l10n.appTitle : username,
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.lock_outline),
+              tooltip: l10n.lockTooltip,
+              onPressed: () =>
+                  ref.read(sessionControllerProvider.notifier).lock(manual: true),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _searchBar(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: TextField(
+        controller: _search,
+        onChanged: (v) => setState(() => _query = v.trim()),
+        decoration: InputDecoration(
+          hintText: l10n.searchVault,
+          prefixIcon: const Icon(Icons.search),
+          filled: true,
+          isDense: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(28),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _hub(AppLocalizations l10n) {
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 96),
+      children: [
+        _sectionLabel(l10n.sectionCategories),
+        _CategoryCard(
+          icon: Icons.key_outlined,
+          title: l10n.tabPasswords,
+          count: _passwordCount(),
+          countLabel: l10n.entryCount(_passwordCount()),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const EntryListScreen(
+                  kind: EntryListKind.password))),
+        ),
+        _CategoryCard(
+          icon: Icons.pin_outlined,
+          title: l10n.tabTotp,
+          count: _totpCount(),
+          countLabel: l10n.entryCount(_totpCount()),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) =>
+                  const EntryListScreen(kind: EntryListKind.totp))),
+        ),
+        _CategoryCard(
+          icon: Icons.vpn_key_outlined,
+          title: l10n.tabSsh,
+          count: _sshCount(),
+          countLabel: l10n.entryCount(_sshCount()),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => const EntryListScreen(kind: EntryListKind.ssh))),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 8, 0),
+          child: Row(
+            children: [
+              Expanded(child: _sectionLabel(l10n.folders)),
+              TextButton.icon(
+                onPressed: _createFolder,
+                icon: const Icon(Icons.create_new_folder_outlined, size: 18),
+                label: Text(l10n.addFolder),
+              ),
+            ],
+          ),
+        ),
+        if (_vault.folders.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Text(l10n.noFolders,
+                style: Theme.of(context).textTheme.bodyMedium),
+          )
+        else
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                for (final f in _vault.folders)
+                  _folderTile(f, l10n),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _sectionLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Text(label.toUpperCase(),
+          style: Theme.of(context)
+              .textTheme
+              .labelSmall
+              ?.copyWith(color: Theme.of(context).colorScheme.primary)),
+    );
+  }
+
+  Widget _folderTile(VaultFolder f, AppLocalizations l10n) {
+    return ListTile(
+      leading: const CircleAvatar(child: Icon(Icons.folder_outlined)),
+      title: Text(f.name),
+      subtitle: Text(l10n.entryCount(_folderCount(f))),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => EntryListScreen(folderId: f.id))),
+      trailing: PopupMenuButton<String>(
+        onSelected: (v) {
+          if (v == 'rename') _renameFolder(f);
+          if (v == 'delete') _deleteFolder(f);
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem(value: 'rename', child: Text(l10n.renameFolder)),
+          PopupMenuItem(value: 'delete', child: Text(l10n.deleteFolder)),
+        ],
+      ),
+    );
+  }
+
+  String _initial(String name) =>
+      name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase();
+
+  Future<void> _newEntry() async {
     ref.read(sessionControllerProvider.notifier).touch();
-    final code = _codes[e.id];
-    if (code == null) return;
-    await Clipboard.setData(ClipboardData(text: code));
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.l10n.codeCopied)));
+    final entry = await Navigator.of(context).push<VaultEntry>(
+        MaterialPageRoute(builder: (_) => const EntryEditScreen()));
+    if (entry == null || !mounted) return;
+    await _save(VaultData(
+      entries: [..._vault.entries, entry],
+      folders: _vault.folders,
+    ));
+  }
+
+  Future<void> _createFolder() async {
+    final name = await _folderNameDialog(null);
+    if (name == null || name.isEmpty) return;
+    try {
+      await ref.read(sessionControllerProvider.notifier).addFolder(name);
+    } catch (e) {
+      _showSyncError(e);
     }
   }
 
-  Future<void> _deleteTotp(VaultEntry e) async {
+  Future<void> _renameFolder(VaultFolder f) async {
+    final name = await _folderNameDialog(f.name);
+    if (name == null || name.isEmpty || name == f.name) return;
+    try {
+      await ref
+          .read(sessionControllerProvider.notifier)
+          .renameFolder(f.id, name);
+    } catch (e) {
+      _showSyncError(e);
+    }
+  }
+
+  Future<void> _deleteFolder(VaultFolder f) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(ctx.l10n.deleteEntryTitle),
-        content: Text(ctx.l10n.deleteEntryBody(e.name)),
+        title: Text(ctx.l10n.deleteFolderTitle),
+        content: Text(ctx.l10n.deleteFolderBody(f.name)),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
@@ -146,358 +331,85 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
         ],
       ),
     );
-    if (ok == true) {
-      await _save(_vault.entries.where((x) => x.id != e.id).toList());
-      _refreshTotp();
+    if (ok != true) return;
+    try {
+      await ref.read(sessionControllerProvider.notifier).deleteFolder(f.id);
+    } catch (e) {
+      _showSyncError(e);
     }
   }
+
+  Future<String?> _folderNameDialog(String? initial) {
+    final controller = TextEditingController(text: initial ?? '');
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(initial == null ? ctx.l10n.newFolder : ctx.l10n.renameFolder),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(labelText: ctx.l10n.folderName),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(ctx.l10n.cancel)),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+              child: Text(ctx.l10n.save)),
+        ],
+      ),
+    );
+  }
+
+  void _showSyncError(Object e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(context.l10n.syncError(e))));
+  }
+
+  Future<void> _save(VaultData vault) async {
+    try {
+      await ref.read(sessionControllerProvider.notifier).saveVault(vault);
+    } catch (e) {
+      _showSyncError(e);
+    }
+  }
+}
+
+class _CategoryCard extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final int count;
+  final String countLabel;
+  final VoidCallback onTap;
+
+  const _CategoryCard({
+    required this.icon,
+    required this.title,
+    required this.count,
+    required this.countLabel,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final vault = _vault;
-    final entries = _tab == 0
-        ? _passwordEntries
-        : _tab == 1
-            ? _totpEntries
-            : _sshEntries;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_userName().isNotEmpty ? _userName() : context.l10n.appTitle),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.lock_outline),
-            tooltip: context.l10n.lockTooltip,
-            onPressed: () => ref.read(sessionControllerProvider.notifier).lock(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: context.l10n.settingsTooltip,
-            onPressed: () {
-              final notifier = ref.read(sessionControllerProvider.notifier);
-              notifier.touch();
-              Navigator.of(context)
-                  .push(MaterialPageRoute(
-                      builder: (_) => const SettingsScreen()))
-                  .then((_) => notifier.touch());
-            },
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(112),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: TextField(
-                  onChanged: (v) => setState(() => _query = v),
-                  decoration: InputDecoration(
-                    hintText: context.l10n.searchVault,
-                    prefixIcon: const Icon(Icons.search),
-                    filled: true,
-                    isDense: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-              ),
-              TabBar(
-                controller: _tabController,
-                tabs: [
-                  Tab(icon: const Icon(Icons.key_outlined), text: context.l10n.tabPasswords),
-                  Tab(icon: const Icon(Icons.pin_outlined), text: context.l10n.tabTotp),
-                  Tab(icon: const Icon(Icons.vpn_key_outlined), text: context.l10n.tabSsh),
-                ],
-              ),
-            ],
-          ),
+    return Card(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: theme.colorScheme.secondaryContainer,
+          foregroundColor: theme.colorScheme.onSecondaryContainer,
+          child: Icon(icon),
         ),
-      ),
-      floatingActionButton: _tab == 0
-          ? FloatingActionButton.extended(
-              onPressed: () async {
-                ref.read(sessionControllerProvider.notifier).touch();
-                final entry = await Navigator.of(context).push<VaultEntry>(
-                    MaterialPageRoute(builder: (_) => const EntryEditScreen()));
-                if (entry != null) {
-                  await _save([entry, ...vault.entries]);
-                }
-              },
-              icon: const Icon(Icons.add),
-              label: Text(context.l10n.newFab),
-            )
-          : _tab == 1
-              ? FloatingActionButton.extended(
-                  onPressed: _scanQr,
-                  icon: const Icon(Icons.photo_camera),
-                  label: Text(context.l10n.addFab),
-                )
-              : FloatingActionButton.extended(
-                  onPressed: () async {
-                    ref.read(sessionControllerProvider.notifier).touch();
-                    final entry = await Navigator.of(context).push<VaultEntry>(
-                        MaterialPageRoute(
-                            builder: (_) => const SshEditScreen()));
-                    if (entry != null) {
-                      await _save([entry, ...vault.entries]);
-                    }
-                  },
-                  icon: const Icon(Icons.add),
-                  label: Text(context.l10n.newFab),
-                ),
-      body: _error.isNotEmpty
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: SelectableText(_error,
-                    style: TextStyle(color: theme.colorScheme.error),
-                    textAlign: TextAlign.center),
-              ),
-            )
-          : entries.isEmpty
-              ? Center(
-                  child: Text(
-                    _query.isEmpty
-                        ? (_tab == 0
-                            ? context.l10n.emptyVault
-                            : _tab == 1
-                                ? context.l10n.emptyTotp
-                                : context.l10n.emptySsh)
-                        : context.l10n.noResults(_query),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.only(bottom: 96),
-                  itemCount: entries.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, i) => _tab == 0
-                      ? _passwordTile(entries[i], theme)
-                      : _tab == 1
-                          ? _totpTile(entries[i], theme)
-                          : _sshTile(entries[i], theme),
-                ),
-    );
-  }
-
-  String _userName() =>
-      ref.watch(sessionControllerProvider).user?.username ?? '';
-
-  Widget _passwordTile(VaultEntry e, ThemeData theme) {
-    return ListTile(
-      leading: CircleAvatar(child: Text(_initial(e.name))),
-      title: Text(e.name),
-      subtitle: Text(
-        [e.username, e.url].where((s) => s.isNotEmpty).join(' · '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      onTap: () async {
-        ref.read(sessionControllerProvider.notifier).touch();
-        final edited = await Navigator.of(context).push<VaultEntry>(
-            MaterialPageRoute(
-                builder: (_) => EntryEditScreen(entry: e)));
-        if (edited != null) {
-          await _save(_vault.entries
-              .map((x) => x.id == edited.id ? edited : x)
-              .toList());
-        }
-      },
-      trailing: PopupMenuButton<String>(
-        onSelected: (v) => _action(e, v),
-        itemBuilder: (_) => [
-          PopupMenuItem(
-              value: 'copy_user',
-              child: Text(context.l10n.copyUsername)),
-          PopupMenuItem(
-              value: 'copy_pass',
-              child: Text(context.l10n.copyPassword)),
-          PopupMenuItem(value: 'delete', child: Text(context.l10n.delete)),
-        ],
+        title: Text(title,
+            style: theme.textTheme.titleMedium
+                ?.copyWith(fontWeight: FontWeight.w600)),
+        subtitle: Text(countLabel),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
       ),
     );
-  }
-
-  Widget _totpTile(VaultEntry e, ThemeData theme) {
-    final code = _codes[e.id];
-    return ListTile(
-      leading: CircleAvatar(child: Text(_initial(e.name))),
-      title: Text(e.name),
-      subtitle: Row(
-        children: [
-          Text(
-            code ?? '··· ···',
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontFamily: 'monospace',
-              letterSpacing: 3,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 40,
-            child: LinearProgressIndicator(
-              value: _secondsLeft / 30,
-              minHeight: 4,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(context.l10n.secondsLeft(_secondsLeft),
-              style: theme.textTheme.bodySmall),
-        ],
-      ),
-      onTap: () => _copyTotp(e),
-      trailing: PopupMenuButton<String>(
-        onSelected: (v) {
-          if (v == 'copy') _copyTotp(e);
-          if (v == 'delete') _deleteTotp(e);
-        },
-        itemBuilder: (_) => [
-          PopupMenuItem(value: 'copy', child: Text(context.l10n.copyCode)),
-          PopupMenuItem(value: 'delete', child: Text(context.l10n.delete)),
-        ],
-      ),
-    );
-  }
-
-  String _initial(String name) =>
-      name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase();
-
-  Widget _sshTile(VaultEntry e, ThemeData theme) {
-    final host = e.url.isNotEmpty ? '@ ${e.url}' : '';
-    return ListTile(
-      leading: const CircleAvatar(child: Icon(Icons.vpn_key_outlined)),
-      title: Text(e.name),
-      subtitle: Text(
-        [e.username, host].where((s) => s.isNotEmpty).join(' '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      onTap: () async {
-        ref.read(sessionControllerProvider.notifier).touch();
-        final edited = await Navigator.of(context).push<VaultEntry>(
-            MaterialPageRoute(builder: (_) => SshEditScreen(entry: e)));
-        if (edited != null) {
-          await _save(_vault.entries
-              .map((x) => x.id == edited.id ? edited : x)
-              .toList());
-        }
-      },
-      trailing: PopupMenuButton<String>(
-        onSelected: (v) => _sshAction(e, v),
-        itemBuilder: (_) => [
-          if (e.privateKey != null)
-            PopupMenuItem(
-                value: 'copy_priv',
-                child: Text(context.l10n.copyPrivateKey)),
-          if (e.publicKey != null)
-            PopupMenuItem(
-                value: 'copy_pub',
-                child: Text(context.l10n.copyPublicKey)),
-          if (e.passphrase != null)
-            PopupMenuItem(
-                value: 'copy_pass',
-                child: Text(context.l10n.copyPassphrase)),
-          PopupMenuItem(value: 'delete', child: Text(context.l10n.delete)),
-        ],
-      ),
-    );
-  }
-
-  void _sshAction(VaultEntry e, String action) async {
-    ref.read(sessionControllerProvider.notifier).touch();
-    switch (action) {
-      case 'copy_priv':
-        await Clipboard.setData(ClipboardData(text: e.privateKey ?? ''));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(context.l10n.privateKeyCopied)));
-        }
-      case 'copy_pub':
-        await Clipboard.setData(ClipboardData(text: e.publicKey ?? ''));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(context.l10n.publicKeyCopied)));
-        }
-      case 'copy_pass':
-        await Clipboard.setData(ClipboardData(text: e.passphrase ?? ''));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(context.l10n.passphraseCopied)));
-        }
-      case 'delete':
-        final ok = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(ctx.l10n.deleteEntryTitle),
-            content: Text(ctx.l10n.deleteEntryBody(e.name)),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: Text(ctx.l10n.cancel)),
-              FilledButton(
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  child: Text(ctx.l10n.delete)),
-            ],
-          ),
-        );
-        final vault = ref.read(sessionControllerProvider).vault;
-        if (ok == true && vault != null) {
-          await _save(vault.entries.where((x) => x.id != e.id).toList());
-        }
-    }
-  }
-
-  void _action(VaultEntry e, String action) async {
-    ref.read(sessionControllerProvider.notifier).touch();
-    final vault = ref.read(sessionControllerProvider).vault;
-    switch (action) {
-      case 'copy_user':
-        await Clipboard.setData(ClipboardData(text: e.username));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(context.l10n.usernameCopied)));
-        }
-      case 'copy_pass':
-        await Clipboard.setData(ClipboardData(text: e.password));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(context.l10n.passwordCopied)));
-        }
-      case 'delete':
-        final ok = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Text(ctx.l10n.deleteEntryTitle),
-            content: Text(ctx.l10n.deleteEntryBody(e.name)),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
-                  child: Text(ctx.l10n.cancel)),
-              FilledButton(
-                  onPressed: () => Navigator.of(ctx).pop(true),
-                  child: Text(ctx.l10n.delete)),
-            ],
-          ),
-        );
-        if (ok == true && vault != null) {
-          await _save(vault.entries.where((x) => x.id != e.id).toList());
-        }
-    }
-  }
-
-  Future<void> _save(List<VaultEntry> entries) async {
-    setState(() => _error = '');
-    try {
-      await ref
-          .read(sessionControllerProvider.notifier)
-          .saveVault(VaultData(entries: entries));
-    } catch (e) {
-      setState(() => _error = context.l10n.syncError(e));
-    }
   }
 }

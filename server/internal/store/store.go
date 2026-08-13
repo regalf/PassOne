@@ -226,8 +226,13 @@ func (s *Store) ListUsers() ([]UserSummary, error) {
 		if err := rows.Scan(&u.ID, &u.Username, &u.Status, &u.Revision, &c, &up); err != nil {
 			return nil, err
 		}
-		u.Created = parseTime(c)
-		u.Updated = parseTime(up)
+		var err error
+		if u.Created, err = parseTime(c); err != nil {
+			return nil, err
+		}
+		if u.Updated, err = parseTime(up); err != nil {
+			return nil, err
+		}
 		out = append(out, u)
 	}
 	return out, rows.Err()
@@ -385,7 +390,12 @@ func (s *Store) GetUserBySessionToken(token string) (*User, error) {
 		}
 		return nil, err
 	}
-	exp := parseTime(expires)
+	exp, err := parseTime(expires)
+	if err != nil {
+		// A malformed expiry is treated as an invalid session.
+		s.DeleteSession(token)
+		return nil, ErrNotFound
+	}
 	if time.Now().UTC().After(exp) {
 		s.DeleteSession(token)
 		return nil, ErrNotFound
@@ -436,9 +446,18 @@ func (u *User) parseExtras() error {
 	if err := json.Unmarshal([]byte(u.kdfParamsRaw), &u.KDFParams); err != nil {
 		return fmt.Errorf("invalid kdf_params for %s: %w", u.Username, err)
 	}
-	u.CreatedAt = parseTime(u.createdAtRaw)
-	u.UpdatedAt = parseTime(u.updatedAtRaw)
-	u.LastLoginAt = parseTime(u.lastLoginRaw.String)
+	var err error
+	if u.CreatedAt, err = parseTime(u.createdAtRaw); err != nil {
+		return err
+	}
+	if u.UpdatedAt, err = parseTime(u.updatedAtRaw); err != nil {
+		return err
+	}
+	if u.lastLoginRaw.Valid {
+		if u.LastLoginAt, err = parseTime(u.lastLoginRaw.String); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -448,7 +467,13 @@ func hashToken(t []byte) []byte {
 
 func now() string { return time.Now().UTC().Format(time.RFC3339Nano) }
 
-func parseTime(s string) time.Time {
-	t, _ := time.Parse(time.RFC3339Nano, s)
-	return t
+func parseTime(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, nil
+	}
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid timestamp %q: %w", s, err)
+	}
+	return t, nil
 }

@@ -113,12 +113,14 @@ Future<ExportFormat?> _chooseFormat(BuildContext context) {
   );
 }
 
-/// Converts the vault to CSV (name,url,username,password,notes).
+/// Converts the vault to CSV (folder,name,url,username,password,notes).
 String vaultToCsv(VaultData vault) {
+  final byId = {for (final f in vault.folders) f.id: f.name};
   final sb = StringBuffer();
-  sb.writeln('name,url,username,password,notes');
+  sb.writeln('folder,name,url,username,password,notes');
   for (final e in vault.entries) {
     sb.writeln([
+      _csvField(e.folderId == null ? '' : (byId[e.folderId] ?? '')),
       _csvField(e.name),
       _csvField(e.url),
       _csvField(e.username),

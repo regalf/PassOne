@@ -1,5 +1,48 @@
 import 'package:uuid/uuid.dart';
 
+/// A user-defined folder used to organize vault entries.
+class VaultFolder {
+  final String id;
+  String name;
+  DateTime createdAt;
+  DateTime updatedAt;
+
+  VaultFolder({
+    required this.id,
+    required this.name,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  VaultFolder.create({required this.name})
+      : id = const Uuid().v4(),
+        createdAt = DateTime.now().toUtc(),
+        updatedAt = DateTime.now().toUtc();
+
+  VaultFolder copyWith({String? name}) {
+    return VaultFolder(
+      id: id,
+      name: name ?? this.name,
+      createdAt: createdAt,
+      updatedAt: DateTime.now().toUtc(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+      };
+
+  factory VaultFolder.fromJson(Map<String, dynamic> json) => VaultFolder(
+        id: json['id'] as String,
+        name: (json['name'] as String?) ?? '',
+        createdAt: DateTime.parse(json['createdAt'] as String),
+        updatedAt: DateTime.parse(json['updatedAt'] as String),
+      );
+}
+
 /// A single vault entry (credential).
 class VaultEntry {
   final String id;
@@ -12,6 +55,7 @@ class VaultEntry {
   String? privateKey;
   String? publicKey;
   String? passphrase;
+  String? folderId;
   DateTime createdAt;
   DateTime updatedAt;
 
@@ -26,6 +70,7 @@ class VaultEntry {
     this.privateKey,
     this.publicKey,
     this.passphrase,
+    this.folderId,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -40,6 +85,7 @@ class VaultEntry {
     this.privateKey,
     this.publicKey,
     this.passphrase,
+    this.folderId,
   })  : id = const Uuid().v4(),
         createdAt = DateTime.now().toUtc(),
         updatedAt = DateTime.now().toUtc();
@@ -60,6 +106,7 @@ class VaultEntry {
     String? Function()? privateKey,
     String? Function()? publicKey,
     String? Function()? passphrase,
+    String? Function()? folderId,
   }) {
     return VaultEntry(
       id: id,
@@ -72,6 +119,7 @@ class VaultEntry {
       privateKey: privateKey != null ? privateKey() : this.privateKey,
       publicKey: publicKey != null ? publicKey() : this.publicKey,
       passphrase: passphrase != null ? passphrase() : this.passphrase,
+      folderId: folderId != null ? folderId() : this.folderId,
       createdAt: createdAt,
       updatedAt: DateTime.now().toUtc(),
     );
@@ -88,6 +136,7 @@ class VaultEntry {
         'privateKey': privateKey,
         'publicKey': publicKey,
         'passphrase': passphrase,
+        'folderId': folderId,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
       };
@@ -103,6 +152,7 @@ class VaultEntry {
         privateKey: json['privateKey'] as String?,
         publicKey: json['publicKey'] as String?,
         passphrase: json['passphrase'] as String?,
+        folderId: json['folderId'] as String?,
         createdAt: DateTime.parse(json['createdAt'] as String),
         updatedAt: DateTime.parse(json['updatedAt'] as String),
       );
@@ -111,17 +161,30 @@ class VaultEntry {
 /// The whole vault: list of entries. Serialized as JSON and encrypted with the vault_key.
 class VaultData {
   final List<VaultEntry> entries;
+  final List<VaultFolder> folders;
 
-  VaultData({List<VaultEntry>? entries}) : entries = entries ?? [];
+  VaultData({List<VaultEntry>? entries, List<VaultFolder>? folders})
+      : entries = entries ?? [],
+        folders = folders ?? [];
 
-  Map<String, dynamic> toJson() => {'version': 1, 'entries': entries.map((e) => e.toJson()).toList()};
+  Map<String, dynamic> toJson() => {
+        'version': 2,
+        'entries': entries.map((e) => e.toJson()).toList(),
+        'folders': folders.map((f) => f.toJson()).toList(),
+      };
 
   factory VaultData.fromJson(Map<String, dynamic> json) => VaultData(
         entries: ((json['entries'] as List?) ?? [])
             .map((e) => VaultEntry.fromJson(e as Map<String, dynamic>))
             .toList(),
+        folders: ((json['folders'] as List?) ?? [])
+            .map((f) => VaultFolder.fromJson(f as Map<String, dynamic>))
+            .toList(),
       );
 
-  VaultData copyWith({List<VaultEntry>? entries}) =>
-      VaultData(entries: entries ?? this.entries);
+  VaultData copyWith({List<VaultEntry>? entries, List<VaultFolder>? folders}) =>
+      VaultData(
+        entries: entries ?? this.entries,
+        folders: folders ?? this.folders,
+      );
 }

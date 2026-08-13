@@ -25,3 +25,11 @@ tools/
 # IDE
 .idea/
 *.iml
+
+# Local test server binary and sidecars
+server/test/passone-server-linux-x64
+server/integration.db-shm
+server/integration.db-wal
+
+# Python build cache
+scripts/__pycache__/
