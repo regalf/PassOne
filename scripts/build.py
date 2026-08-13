@@ -31,7 +31,18 @@ SERVER = ROOT / "server"
 DIST = SERVER / "dist"
 TOOLS = ROOT / "tools"
 
-VERSION = "2.1.0"
+# Version used for artifact names: read from app/pubspec.yaml so the script
+# stays in sync with the actual app version.
+def _app_version() -> str:
+    m = re.search(
+        r"^version:\s*([0-9]+\.[0-9]+\.[0-9]+)",
+        (APP / "pubspec.yaml").read_text(),
+        re.M,
+    )
+    return m.group(1) if m else "0.0.0"
+
+
+VERSION = _app_version()
 APPDIR_NAME = f"passone-appdir"
 APPIMAGE_URL = (
     "https://github.com/AppImage/appimagetool/releases/download/continuous/"
