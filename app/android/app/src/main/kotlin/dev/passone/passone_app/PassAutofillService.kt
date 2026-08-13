@@ -66,6 +66,11 @@ class PassAutofillService : AutofillService() {
         val ids = structure?.let { collectFields(it) } ?: FieldIds()
         val usernameId = ids.username
         val passwordId = ids.password
+        // No fillable field in this structure: nothing we can fill or save.
+        if (usernameId == null && passwordId == null) {
+            callback.onSuccess(null)
+            return
+        }
         val manual = (request.flags and FillRequest.FLAG_MANUAL_REQUEST) != 0
         val response = FillResponse.Builder()
         if (usernameId != null || passwordId != null) {
