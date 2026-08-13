@@ -87,6 +87,12 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "internal error", "internal")
 		return
 	}
+	// Revoke every other session: a password change means the user may suspect
+	// a compromise, so previously issued tokens must not survive. The current
+	// device keeps its session (it just proved knowledge of the old password).
+	if err := s.store.DeleteOtherSessions(u.ID, tokenFrom(r.Context())); err != nil {
+		s.log.Error("revoke sessions after password change", "error", err)
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 

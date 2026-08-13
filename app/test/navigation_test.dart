@@ -131,7 +131,8 @@ class _FakeBiometricsController extends SessionController {
         kdfAlgorithm: 'argon2id',
       ),
       cache: CachedVault(
-        token: 'cache-token',
+        encryptedToken: Uint8List.fromList('cache-token'.codeUnits),
+        tokenNonce: Uint8List(0),
         userId: 1,
         username: 'dave',
         salt: Uint8List(16),

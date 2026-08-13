@@ -418,6 +418,16 @@ func (s *Store) DeleteAllSessions(userID int64) error {
 	return err
 }
 
+// DeleteOtherSessions revokes every session of a user except the one identified
+// by currentToken, keeping the device that performed the operation connected.
+func (s *Store) DeleteOtherSessions(userID int64, currentToken string) error {
+	_, err := s.db.Exec(
+		`DELETE FROM sessions WHERE user_id = ? AND token_hash != ?`,
+		userID, hashToken([]byte(currentToken)),
+	)
+	return err
+}
+
 func (s *Store) scanUser(row *sql.Row) (*User, error) {
 	var u User
 	err := row.Scan(

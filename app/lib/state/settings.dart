@@ -7,6 +7,8 @@ import 'package:cryptography/cryptography.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../crypto/vault_crypto.dart';
+
 /// Lock timeout. [minutes] is -1 for "always".
 enum LockTimeout {
   one(1),
@@ -80,8 +82,14 @@ class AppSettings {
 }
 
 /// Encrypted vault cache + materials for offline unlock.
+///
+/// The session token is never stored in plaintext: it is kept encrypted with
+/// the vault key (AES-256-GCM), so the on-disk file only holds ciphertext.
+/// [tokenNonce] is empty for caches written before this change (legacy
+/// plaintext token): [decryptToken] falls back to reading it directly.
 class CachedVault {
-  final String token;
+  final Uint8List encryptedToken;
+  final Uint8List tokenNonce;
   final int userId;
   final String username;
   final Uint8List salt;
@@ -94,7 +102,8 @@ class CachedVault {
   final Uint8List? bioWrappedKey;
 
   CachedVault({
-    required this.token,
+    required this.encryptedToken,
+    required this.tokenNonce,
     required this.userId,
     required this.username,
     required this.salt,
@@ -107,8 +116,74 @@ class CachedVault {
     this.bioWrappedKey,
   });
 
+  /// Builds a cache encrypting [token] with [vaultKey].
+  static Future<CachedVault> withToken({
+    required Uint8List vaultKey,
+    required String token,
+    required int userId,
+    required String username,
+    required Uint8List salt,
+    required Map<String, dynamic> kdf,
+    required Uint8List wrappedKey,
+    required Uint8List? wrappedRecovery,
+    required Uint8List blob,
+    required Uint8List nonce,
+    required int revision,
+    Uint8List? bioWrappedKey,
+  }) async {
+    final (encryptedToken, tokenNonce) =
+        await VaultCrypto.encrypt(vaultKey, utf8.encode(token));
+    return CachedVault(
+      encryptedToken: encryptedToken,
+      tokenNonce: tokenNonce,
+      userId: userId,
+      username: username,
+      salt: salt,
+      kdf: kdf,
+      wrappedKey: wrappedKey,
+      wrappedRecovery: wrappedRecovery,
+      blob: blob,
+      nonce: nonce,
+      revision: revision,
+      bioWrappedKey: bioWrappedKey,
+    );
+  }
+
+  /// Decrypts and returns the session token with [vaultKey], or null if the
+  /// decryption fails. Legacy caches (empty [tokenNonce]) return the token as-is.
+  Future<String?> decryptToken(Uint8List vaultKey) async {
+    try {
+      final clear = tokenNonce.isEmpty
+          ? encryptedToken
+          : await VaultCrypto.decrypt(vaultKey, encryptedToken, tokenNonce);
+      return utf8.decode(clear);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Returns a copy with [token] re-encrypted (used to migrate legacy caches
+  /// that still hold a plaintext token after the first unlock).
+  Future<CachedVault> reencryptToken(
+          Uint8List vaultKey, String token) async =>
+      withToken(
+        vaultKey: vaultKey,
+        token: token,
+        userId: userId,
+        username: username,
+        salt: salt,
+        kdf: kdf,
+        wrappedKey: wrappedKey,
+        wrappedRecovery: wrappedRecovery,
+        blob: blob,
+        nonce: nonce,
+        revision: revision,
+        bioWrappedKey: bioWrappedKey,
+      );
+
   Map<String, dynamic> toJson() => {
-        'token': token,
+        'encryptedToken': base64.encode(encryptedToken),
+        'tokenNonce': base64.encode(tokenNonce),
         'userId': userId,
         'username': username,
         'salt': base64.encode(salt),
@@ -122,23 +197,31 @@ class CachedVault {
             bioWrappedKey == null ? null : base64.encode(bioWrappedKey!),
       };
 
-  factory CachedVault.fromJson(Map<String, dynamic> j) => CachedVault(
-        token: j['token'] as String,
-        userId: (j['userId'] as num).toInt(),
-        username: j['username'] as String,
-        salt: base64.decode(j['salt'] as String),
-        kdf: (j['kdf'] as Map).cast<String, dynamic>(),
-        wrappedKey: base64.decode(j['wrappedKey'] as String),
-        wrappedRecovery: j['wrappedRecovery'] == null
-            ? null
-            : base64.decode(j['wrappedRecovery'] as String),
-        blob: base64.decode(j['blob'] as String),
-        nonce: base64.decode(j['nonce'] as String),
-        revision: (j['revision'] as num).toInt(),
-        bioWrappedKey: j['bioWrappedKey'] == null
-            ? null
-            : base64.decode(j['bioWrappedKey'] as String),
-      );
+  factory CachedVault.fromJson(Map<String, dynamic> j) {
+    final legacyToken = j['token'] as String?;
+    return CachedVault(
+      encryptedToken: j['encryptedToken'] == null
+          ? Uint8List.fromList(utf8.encode(legacyToken ?? ''))
+          : base64.decode(j['encryptedToken'] as String),
+      tokenNonce: j['tokenNonce'] == null
+          ? Uint8List(0)
+          : base64.decode(j['tokenNonce'] as String),
+      userId: (j['userId'] as num).toInt(),
+      username: j['username'] as String,
+      salt: base64.decode(j['salt'] as String),
+      kdf: (j['kdf'] as Map).cast<String, dynamic>(),
+      wrappedKey: base64.decode(j['wrappedKey'] as String),
+      wrappedRecovery: j['wrappedRecovery'] == null
+          ? null
+          : base64.decode(j['wrappedRecovery'] as String),
+      blob: base64.decode(j['blob'] as String),
+      nonce: base64.decode(j['nonce'] as String),
+      revision: (j['revision'] as num).toInt(),
+      bioWrappedKey: j['bioWrappedKey'] == null
+          ? null
+          : base64.decode(j['bioWrappedKey'] as String),
+    );
+  }
 }
 
 /// Persistence of settings and vault cache.

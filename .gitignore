@@ -17,6 +17,7 @@ server/test/config.yaml
 # Docs
 PLAN.md
 REPORT.md
+HACK_report.md
 
 # Release artifacts
 dist/

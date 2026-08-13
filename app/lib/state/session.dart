@@ -243,8 +243,8 @@ class SessionController extends StateNotifier<SessionState> {
       deviceName: _deviceName(),
     );
 
-    final cache = _buildCache(
-        session, salt, kdf, wrapped, wrappedRecov, blob, nonce);
+    final cache = await _buildCache(
+        session, vaultKey, salt, kdf, wrapped, wrappedRecov, blob, nonce);
     await _repo.saveCache(cache);
     await setLastUsername(username);
     state = state.copyWith(
@@ -266,7 +266,8 @@ class SessionController extends StateNotifier<SessionState> {
     final vaultData = VaultData.fromJson(
         VaultCrypto.decodeJson(await VaultCrypto.decrypt(
             vaultKey, remote.blob, remote.nonce)));
-    final cache = CachedVault(
+    final cache = await CachedVault.withToken(
+      vaultKey: vaultKey,
       token: session.token,
       userId: session.user.id,
       username: session.user.username,
@@ -310,9 +311,10 @@ class SessionController extends StateNotifier<SessionState> {
     final vaultData = VaultData.fromJson(
         VaultCrypto.decodeJson(
             await VaultCrypto.decrypt(vaultKey, cache.blob, cache.nonce)));
+    final token = await cache.decryptToken(vaultKey);
     state = state.copyWith(
       status: AuthStatus.unlocked,
-      token: cache.token,
+      token: token,
       user: state.user ??
           UserInfo(
               id: cache.userId,
@@ -325,6 +327,12 @@ class SessionController extends StateNotifier<SessionState> {
       vault: vaultData,
     );
     _scheduleLock();
+    // Legacy cache holding a plaintext token: re-encrypt and persist it now.
+    if (cache.tokenNonce.isEmpty && token != null) {
+      final migrated = await cache.reencryptToken(vaultKey, token);
+      await _repo.saveCache(migrated);
+      state = state.copyWith(cache: migrated);
+    }
     _repairBioKey();
   }
 
@@ -407,9 +415,10 @@ class SessionController extends StateNotifier<SessionState> {
       final vaultKey = await VaultCrypto.unwrapKey(read.bioKey!, bioWrapped);
       final vaultData = VaultData.fromJson(VaultCrypto.decodeJson(
           await VaultCrypto.decrypt(vaultKey, cache.blob, cache.nonce)));
+      final token = await cache.decryptToken(vaultKey);
       state = state.copyWith(
         status: AuthStatus.unlocked,
-        token: cache.token,
+        token: token,
         user: state.user ??
             UserInfo(
                 id: cache.userId,
@@ -422,6 +431,11 @@ class SessionController extends StateNotifier<SessionState> {
         vault: vaultData,
       );
       _scheduleLock();
+      if (cache.tokenNonce.isEmpty && token != null) {
+        final migrated = await cache.reencryptToken(vaultKey, token);
+        await _repo.saveCache(migrated);
+        state = state.copyWith(cache: migrated);
+      }
       return BiometricReadResult.success;
     } catch (_) {
       return BiometricReadResult.unavailable;
@@ -430,7 +444,8 @@ class SessionController extends StateNotifier<SessionState> {
 
   CachedVault _cacheWithBio(CachedVault cache, Uint8List? bioWrapped) =>
       CachedVault(
-        token: cache.token,
+        encryptedToken: cache.encryptedToken,
+        tokenNonce: cache.tokenNonce,
         userId: cache.userId,
         username: cache.username,
         salt: cache.salt,
@@ -450,12 +465,15 @@ class SessionController extends StateNotifier<SessionState> {
     _manualLock = manual;
     _lockTimer?.cancel();
     _lockTimer = null;
-    // State built explicitly: copyWith cannot wipe vaultKey/vault
-    // (it uses `??`), so here the keys are really removed from memory.
+    // State built explicitly: copyWith cannot wipe vaultKey/vault/token
+    // (it uses `??`), so here the secrets are really removed from memory.
+    // The session token is NOT kept: it is restored from the encrypted cache
+    // only on the next unlock. Logout from the locked screen therefore only
+    // cleans up locally (the server session expires via its TTL or when the
+    // password is changed).
     state = SessionState(
       status: AuthStatus.locked,
       user: state.user,
-      token: state.token,
       settings: state.settings,
       cache: state.cache,
     );
@@ -567,7 +585,8 @@ class SessionController extends StateNotifier<SessionState> {
   }) async {
     final cache = state.cache!;
     final updated = CachedVault(
-      token: cache.token,
+      encryptedToken: cache.encryptedToken,
+      tokenNonce: cache.tokenNonce,
       userId: cache.userId,
       username: cache.username,
       salt: cache.salt,
@@ -672,7 +691,8 @@ class SessionController extends StateNotifier<SessionState> {
     );
 
     final updated = CachedVault(
-      token: cache.token,
+      encryptedToken: cache.encryptedToken,
+      tokenNonce: cache.tokenNonce,
       userId: cache.userId,
       username: cache.username,
       salt: newSalt,
@@ -745,7 +765,8 @@ class SessionController extends StateNotifier<SessionState> {
 
     final vaultData = VaultData.fromJson(VaultCrypto.decodeJson(
         await VaultCrypto.decrypt(vaultKey, payload.blob, payload.nonce)));
-    final cache = CachedVault(
+    final cache = await CachedVault.withToken(
+      vaultKey: vaultKey,
       token: session.token,
       userId: session.user.id,
       username: session.user.username,
@@ -771,10 +792,11 @@ class SessionController extends StateNotifier<SessionState> {
     return newRecoveryKey;
   }
 
-  CachedVault _buildCache(Session session, Uint8List salt, KdfParams kdf,
-      Uint8List wrapped, Uint8List? wrappedRecov,
-      Uint8List blob, Uint8List nonce) {
-    return CachedVault(
+  Future<CachedVault> _buildCache(Session session, Uint8List vaultKey,
+      Uint8List salt, KdfParams kdf, Uint8List wrapped,
+      Uint8List? wrappedRecov, Uint8List blob, Uint8List nonce) {
+    return CachedVault.withToken(
+      vaultKey: vaultKey,
       token: session.token,
       userId: session.user.id,
       username: session.user.username,

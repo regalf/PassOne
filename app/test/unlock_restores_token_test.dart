@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/services.dart';
@@ -84,7 +85,8 @@ void main() {
     ]);
     final (blob, nonce) = await VaultCrypto.encrypt(
         vaultKey, VaultCrypto.encodeJson(vault.toJson()));
-    return CachedVault(
+    return CachedVault.withToken(
+      vaultKey: vaultKey,
       token: 'session-token',
       userId: 7,
       username: 'alice',
@@ -131,6 +133,36 @@ void main() {
       throwsA(isA<ApiException>()),
     );
 
+    c.lock();
+    expect(c.state.token, isNull,
+        reason: 'lock must wipe the session token from memory');
+    await c.unlock('master-password');
+    await waitFor(() => c.state.status == AuthStatus.unlocked);
+    expect(c.state.token, 'session-token',
+        reason: 'the token is restored from the encrypted cache on unlock');
+    c.lock();
+  });
+
+  test('the token is stored encrypted, never in plaintext', () async {
+    final repo = SettingsRepository();
+    await repo.saveCache(await buildCache());
+
+    final file = File('${tmpDir.path}${Platform.pathSeparator}vault.cache.json');
+    expect(file.existsSync(), isTrue);
+    final raw = await file.readAsString();
+    expect(raw, isNot(contains('session-token')),
+        reason: 'the session token must not appear in plaintext in the file');
+    final data = jsonDecode(raw) as Map<String, dynamic>;
+    expect(data['encryptedToken'], isA<String>());
+    expect(data['encryptedToken'], isNotEmpty);
+    expect(data.containsKey('token'), isFalse,
+        reason: 'the legacy plaintext token field must not be written');
+
+    final c = SessionController(repo);
+    await waitFor(() => c.state.status == AuthStatus.locked);
+    await c.unlock('master-password');
+    await waitFor(() => c.state.status == AuthStatus.unlocked);
+    expect(c.state.token, 'session-token');
     c.lock();
   });
 

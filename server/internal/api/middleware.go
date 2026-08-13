@@ -15,7 +15,10 @@ import (
 
 type ctxKey int
 
-const ctxUserKey ctxKey = 0
+const (
+	ctxUserKey ctxKey = iota
+	ctxTokenKey
+)
 
 // maxBodyBytes caps the size of every request body (defense in depth; the
 // JSON decoders already apply the same limit).
@@ -57,6 +60,12 @@ func (s *Server) userFrom(ctx context.Context) *store.User {
 	return u
 }
 
+// tokenFrom returns the session token stored by the authed middleware.
+func tokenFrom(ctx context.Context) string {
+	t, _ := ctx.Value(ctxTokenKey).(string)
+	return t
+}
+
 // logged logs every request.
 func (s *Server) logged(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +99,8 @@ func (s *Server) authed(next http.HandlerFunc) http.HandlerFunc {
 			writeErr(w, http.StatusForbidden, "account not active", "inactive")
 			return
 		}
-		next(w, r.WithContext(context.WithValue(r.Context(), ctxUserKey, u)))
+		next(w, r.WithContext(context.WithValue(
+			context.WithValue(r.Context(), ctxUserKey, u), ctxTokenKey, token)))
 	}
 }
 
