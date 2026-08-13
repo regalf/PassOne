@@ -8,6 +8,7 @@ import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
 import android.service.autofill.FillResponse
 import android.service.autofill.SaveCallback
+import android.service.autofill.SaveInfo
 import android.service.autofill.SaveRequest
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillValue
@@ -63,26 +64,52 @@ class PassAutofillService : AutofillService() {
 
         val structure = request.fillContexts.lastOrNull()?.structure
         val ids = structure?.let { collectFields(it) } ?: FieldIds()
-        val usernameId = ids.username ?: run { callback.onSuccess(null); return }
-        val passwordId = ids.password ?: run { callback.onSuccess(null); return }
-        val domain = resolveDomain(structure)
-        val matches = entries.filter { matchesEntry(it, domain) }
-        if (matches.isEmpty()) {
-            callback.onSuccess(null)
-            return
-        }
-
+        val usernameId = ids.username
+        val passwordId = ids.password
+        val manual = (request.flags and FillRequest.FLAG_MANUAL_REQUEST) != 0
         val response = FillResponse.Builder()
-        for (entry in matches) {
-            val presentation = RemoteViews(packageName, R.layout.autofill_dataset)
-            presentation.setTextViewText(
-                R.id.autofill_label,
-                entry.name.ifBlank { entry.username }.ifBlank { "PassOne" },
+        if (usernameId != null || passwordId != null) {
+            // Always advertise what should be saved, so the system offers the
+            // "Save password?" prompt even when we have no dataset to fill.
+            val saveBuilder = SaveInfo.Builder(
+                if (usernameId != null) SaveInfo.SAVE_DATA_TYPE_USERNAME else SaveInfo.SAVE_DATA_TYPE_PASSWORD,
+                if (usernameId != null) arrayOf(usernameId) else arrayOf(passwordId!!),
             )
-            val builder = Dataset.Builder(presentation)
-                .setValue(usernameId, AutofillValue.forText(entry.username))
-                .setValue(passwordId, AutofillValue.forText(entry.password))
-            response.addDataset(builder.build())
+            if (usernameId != null && passwordId != null) {
+                saveBuilder.setOptionalIds(arrayOf(passwordId))
+            }
+            response.setSaveInfo(saveBuilder.build())
+        }
+        val domain = resolveDomain(structure)
+        val matches = if (manual) entries else entries.filter { matchesEntry(it, domain) }
+        if (usernameId != null && passwordId != null) {
+            for (entry in matches) {
+                val presentation = RemoteViews(packageName, R.layout.autofill_dataset)
+                presentation.setTextViewText(
+                    R.id.autofill_label,
+                    entry.name.ifBlank { entry.username }.ifBlank { "PassOne" },
+                )
+                val builder = Dataset.Builder(presentation)
+                    .setValue(usernameId, AutofillValue.forText(entry.username))
+                    .setValue(passwordId, AutofillValue.forText(entry.password))
+                response.addDataset(builder.build())
+            }
+        } else if (usernameId != null || passwordId != null) {
+            // A single field is enough to offer a fill candidate.
+            for (entry in matches) {
+                val presentation = RemoteViews(packageName, R.layout.autofill_dataset)
+                presentation.setTextViewText(
+                    R.id.autofill_label,
+                    entry.name.ifBlank { entry.username }.ifBlank { "PassOne" },
+                )
+                val builder = Dataset.Builder(presentation)
+                if (usernameId != null) {
+                    builder.setValue(usernameId, AutofillValue.forText(entry.username))
+                } else {
+                    builder.setValue(passwordId!!, AutofillValue.forText(entry.password))
+                }
+                response.addDataset(builder.build())
+            }
         }
         callback.onSuccess(response.build())
     }
