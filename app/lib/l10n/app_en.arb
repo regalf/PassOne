@@ -157,6 +157,8 @@
   "autofillDisabled": "Disabled — tap to open the system settings",
   "autofillChecking": "Checking…",
   "autofillImported": "{count} passwords imported from autofill",
+  "autofillRequireAuth": "Always require authentication",
+  "autofillRequireAuthSub": "Ask for biometrics or PIN before every fill, even when the vault is already unlocked.",
   "sectionGeneral": "General",
   "biometricEnabled": "Fingerprint unlock enabled",
   "biometricDisabled": "Fingerprint unlock disabled",

@@ -487,6 +487,13 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String get autofillRequireAuth => 'Chiedi sempre l\'autenticazione';
+
+  @override
+  String get autofillRequireAuthSub =>
+      'Richiede biometrico o PIN prima di ogni compilazione, anche a vault già sbloccato.';
+
+  @override
   String get sectionGeneral => 'Generale';
 
   @override

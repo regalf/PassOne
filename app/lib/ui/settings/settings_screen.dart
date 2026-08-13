@@ -512,6 +512,7 @@ class _AutofillSection extends ConsumerStatefulWidget {
 class _AutofillSectionState extends ConsumerState<_AutofillSection>
     with WidgetsBindingObserver {
   bool? _enabled;
+  bool? _requireAuth;
 
   @override
   void initState() {
@@ -532,12 +533,14 @@ class _AutofillSectionState extends ConsumerState<_AutofillSection>
   }
 
   Future<void> _refresh() async {
-    final enabled = await ref
-        .read(sessionControllerProvider.notifier)
-        .isAutofillEnabled();
-    if (mounted && enabled != _enabled) {
-      setState(() => _enabled = enabled);
-    }
+    final notifier = ref.read(sessionControllerProvider.notifier);
+    final enabled = await notifier.isAutofillEnabled();
+    final requireAuth = await notifier.isAutofillRequireAuth();
+    if (!mounted) return;
+    setState(() {
+      _enabled = enabled;
+      _requireAuth = requireAuth;
+    });
   }
 
   @override
@@ -562,6 +565,19 @@ class _AutofillSectionState extends ConsumerState<_AutofillSection>
             ref.read(sessionControllerProvider.notifier).openAutofillSettings();
           },
         ),
+        if (_requireAuth != null)
+          SwitchListTile(
+            secondary: const Icon(Icons.fingerprint),
+            title: Text(l10n.autofillRequireAuth),
+            subtitle: Text(l10n.autofillRequireAuthSub),
+            value: _requireAuth!,
+            onChanged: (value) async {
+              setState(() => _requireAuth = value);
+              await ref
+                  .read(sessionControllerProvider.notifier)
+                  .setAutofillRequireAuth(value);
+            },
+          ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: Text(

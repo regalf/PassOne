@@ -55,6 +55,25 @@ class AutofillBridge {
     return await _channel.invokeMethod<bool>('isEnabled') ?? false;
   }
 
+  /// When true, every autofill requires a biometric/PIN confirmation, even if
+  /// the vault is already unlocked.
+  Future<void> setRequireAuth(bool enabled) async {
+    await _channel.invokeMethod<void>('setRequireAuth', {'enabled': enabled});
+  }
+
+  Future<bool> isRequireAuthEnabled() async {
+    return await _channel.invokeMethod<bool>('getRequireAuth') ?? false;
+  }
+
+  /// Tells the native side that the vault was just unlocked from the autofill
+  /// "vault locked" prompt, so the unlock activity can finish and return to the
+  /// host app. No-op when the activity was not launched for autofill unlock.
+  Future<void> notifyUnlockFinished() async {
+    try {
+      await _channel.invokeMethod<void>('autofillUnlockFinished');
+    } catch (_) {}
+  }
+
   Future<void> openSystemSettings() async {
     await _channel.invokeMethod<void>('openSettings');
   }

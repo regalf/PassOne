@@ -1,11 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<TextView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/autofill_label"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="12dp"
-    android:textSize="14sp"
-    android:textColor="#FFFFFFFF"
+    android:orientation="vertical"
     android:background="#FF2E7D32"
-    android:gravity="center_vertical"
-    android:text="PassOne" />
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
+    <TextView
+        android:id="@+id/autofill_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFFFF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="PassOne" />
+    <TextView
+        android:id="@+id/autofill_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textColor="#CCFFFFFF"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="username" />
+</LinearLayout>

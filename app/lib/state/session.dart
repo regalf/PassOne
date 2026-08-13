@@ -935,24 +935,24 @@ class SessionController extends StateNotifier<SessionState> {
       final blob = await AutofillBridge.encryptSnapshot(_autofillKey!, vault);
       await _autofill.setSessionKey(_autofillKey!);
       await _autofill.syncSnapshot(blob);
-      // The user may have locked the vault while this setup was in flight: a
-      // session key must never survive a lock.
-      if (state.status != AuthStatus.unlocked) {
-        await _autofill.clearSessionKey();
-        _autofillKey = null;
-        return;
-      }
-      final pending = await _autofill.pullPendingSaves();
-      if (pending.isNotEmpty) {
-        await _importPendingSaves(pending);
-      }
     } catch (_) {
       // Channel unavailable (e.g. tests or non-Android host): nothing to do.
-      if (_autofillKey != null) {
-        await _autofill.clearSessionKey();
-      }
       _autofillKey = null;
+      return;
     }
+    // The user may have locked the vault while this setup was in flight: a
+    // session key must never survive a lock.
+    if (state.status != AuthStatus.unlocked) {
+      await _autofill.clearSessionKey();
+      _autofillKey = null;
+      return;
+    }
+    // If this unlock was triggered by the autofill "vault locked" prompt, finish
+    // the unlock activity so the user returns to the host app.
+    unawaited(_autofill.notifyUnlockFinished());
+    // Import credentials the system captured while the vault was locked. Runs
+    // best-effort so a failure (e.g. server unreachable) never wipes the session.
+    unawaited(_importPendingSaves());
   }
 
   /// Re-encrypts the snapshot with the current session key after a vault change.
@@ -968,37 +968,44 @@ class SessionController extends StateNotifier<SessionState> {
   /// Imports credentials captured by the system autofill framework. Existing
   /// entries (same url host + username) get the password updated; everything
   /// else is added as a new entry. The result is synced once and the native
-  /// pending list is cleared.
-  Future<void> _importPendingSaves(List<PendingSave> pending) async {
-    final current = state.vault;
-    if (current == null) return;
-    var vault = current;
-    var imported = 0;
-    for (final p in pending) {
-      final host = _urlHost(p.url);
-      final existing = vault.entries.where((e) =>
-          e.username == p.username &&
-          (host == null || _urlHost(e.url) == host) &&
-          (p.password.isNotEmpty));
-      if (existing.isNotEmpty) {
-        final first = existing.first;
-        vault = vault.copyWith(
-          entries: vault.entries
-              .map((e) => e.id == first.id
-                  ? e.copyWith(password: p.password)
-                  : e)
-              .toList(),
-        );
-      } else {
-        vault = vault.copyWith(entries: [...vault.entries, p.toEntry()]);
+  /// pending list is cleared. Best-effort: a failure (e.g. server unreachable)
+  /// must never wipe the autofill session just established.
+  Future<void> _importPendingSaves() async {
+    try {
+      final pending = await _autofill.pullPendingSaves();
+      if (pending.isEmpty) return;
+      final current = state.vault;
+      if (current == null) return;
+      var vault = current;
+      var imported = 0;
+      for (final p in pending) {
+        final host = _urlHost(p.url);
+        final existing = vault.entries.where((e) =>
+            e.username == p.username &&
+            (host == null || _urlHost(e.url) == host) &&
+            (p.password.isNotEmpty));
+        if (existing.isNotEmpty) {
+          final first = existing.first;
+          vault = vault.copyWith(
+            entries: vault.entries
+                .map((e) => e.id == first.id
+                    ? e.copyWith(password: p.password)
+                    : e)
+                .toList(),
+          );
+        } else {
+          vault = vault.copyWith(entries: [...vault.entries, p.toEntry()]);
+        }
+        imported++;
       }
-      imported++;
+      if (imported > 0) {
+        await saveVault(vault);
+        state = state.copyWith(lastAutofillImports: imported);
+      }
+      await _autofill.confirmPendingSaves();
+    } catch (_) {
+      // Never wipe the session because of a failed import.
     }
-    if (imported > 0) {
-      await saveVault(vault);
-      state = state.copyWith(lastAutofillImports: imported);
-    }
-    await _autofill.confirmPendingSaves();
   }
 
   /// Resets the "N passwords imported" notice shown on the vault screen.
@@ -1023,6 +1030,24 @@ class SessionController extends StateNotifier<SessionState> {
     if (!_autofillSupported) return;
     try {
       await _autofill.openSystemSettings();
+    } catch (_) {}
+  }
+
+  /// Whether every fill must be confirmed with biometrics/PIN (Android only).
+  Future<bool> isAutofillRequireAuth() async {
+    if (!_autofillSupported) return false;
+    try {
+      return await _autofill.isRequireAuthEnabled();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Persists the "always ask before filling" preference natively.
+  Future<void> setAutofillRequireAuth(bool enabled) async {
+    if (!_autofillSupported) return;
+    try {
+      await _autofill.setRequireAuth(enabled);
     } catch (_) {}
   }
 

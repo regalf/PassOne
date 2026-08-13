@@ -157,6 +157,8 @@
   "autofillDisabled": "Disattiva — tocca per aprire le impostazioni di sistema",
   "autofillChecking": "Verifica…",
   "autofillImported": "{count} password importate dalla compilazione automatica",
+  "autofillRequireAuth": "Chiedi sempre l'autenticazione",
+  "autofillRequireAuthSub": "Richiede biometrico o PIN prima di ogni compilazione, anche a vault già sbloccato.",
   "sectionGeneral": "Generale",
   "biometricEnabled": "Accesso con impronta attivato",
   "biometricDisabled": "Accesso con impronta disattivato",

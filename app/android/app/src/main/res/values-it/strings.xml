@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="autofill_locked_title">Vault bloccato</string>
+    <string name="autofill_locked_subtitle">Tocca per sbloccare</string>
+    <string name="autofill_auth_title">PassOne</string>
+    <string name="autofill_auth_subtitle">Conferma per compilare</string>
+    <string name="autofill_auth_cancel">Annulla</string>
+</resources>

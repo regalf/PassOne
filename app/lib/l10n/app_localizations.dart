@@ -980,6 +980,18 @@ abstract class AppLocalizations {
   /// **'{count} passwords imported from autofill'**
   String autofillImported(Object count);
 
+  /// No description provided for @autofillRequireAuth.
+  ///
+  /// In en, this message translates to:
+  /// **'Always require authentication'**
+  String get autofillRequireAuth;
+
+  /// No description provided for @autofillRequireAuthSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Ask for biometrics or PIN before every fill, even when the vault is already unlocked.'**
+  String get autofillRequireAuthSub;
+
   /// No description provided for @sectionGeneral.
   ///
   /// In en, this message translates to:

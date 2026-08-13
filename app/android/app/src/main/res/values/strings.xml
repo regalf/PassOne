@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="autofill_locked_title">Vault locked</string>
+    <string name="autofill_locked_subtitle">Tap to unlock PassOne</string>
+    <string name="autofill_auth_title">PassOne</string>
+    <string name="autofill_auth_subtitle">Confirm to autofill</string>
+    <string name="autofill_auth_cancel">Cancel</string>
+</resources>

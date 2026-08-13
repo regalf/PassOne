@@ -22,8 +22,13 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingResult: Result? = null
     private var pendingExtension: String? = null
 
+    /// True when this instance was launched by the autofill flow ("vault
+    /// locked" prompt) to unlock the vault and return to the host app.
+    private var autofillUnlockLaunch = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        autofillUnlockLaunch = intent.getBooleanExtra(EXTRA_AUTOFILL_UNLOCK, false)
         // Block screenshots, screen recordings and the app-switcher preview
         // for the whole app (same behaviour as Bitwarden and other password
         // managers).
@@ -111,6 +116,20 @@ class MainActivity : FlutterFragmentActivity() {
                         result.success(null)
                     }
                     "isEnabled" -> result.success(isAutofillServiceEnabled())
+                    "setRequireAuth" -> {
+                        store.setRequireAuth(call.argument<Boolean>("enabled") == true)
+                        result.success(null)
+                    }
+                    "getRequireAuth" -> result.success(store.isRequireAuthEnabled())
+                    "autofillUnlockFinished" -> {
+                        // The user just unlocked the vault from the autofill
+                        // "vault locked" prompt: return to the host app.
+                        if (autofillUnlockLaunch) {
+                            setResult(Activity.RESULT_OK)
+                            finish()
+                        }
+                        result.success(null)
+                    }
                     "openSettings" -> {
                         try {
                             startActivity(
@@ -192,5 +211,9 @@ class MainActivity : FlutterFragmentActivity() {
 
     companion object {
         private const val REQUEST_SAVE_FILE = 4410
+
+        /// Intent extra set by the autofill service when launching the app to
+        /// unlock the vault from the "vault locked" autofill prompt.
+        const val EXTRA_AUTOFILL_UNLOCK = "passone.autofill_unlock"
     }
 }

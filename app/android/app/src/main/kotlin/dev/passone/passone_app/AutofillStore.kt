@@ -32,6 +32,7 @@ class AutofillStore(context: Context) {
         private const val KEY_SNAPSHOT = "snapshot"
         private const val KEY_SESSION = "session_key"
         private const val KEY_PENDING = "pending"
+        private const val KEY_REQUIRE_AUTH = "require_auth"
     }
 
     private fun masterKey(): SecretKey {
@@ -79,7 +80,7 @@ class AutofillStore(context: Context) {
 
     /** Stores the Flutter-encrypted snapshot (base64 of nonce||blob). */
     fun saveSnapshot(blobB64: String) {
-        prefs.edit().putString(KEY_SNAPSHOT, blobB64).apply()
+        prefs.edit().putString(KEY_SNAPSHOT, blobB64).commit()
     }
 
     /** The stored snapshot as raw bytes, or null. */
@@ -95,7 +96,7 @@ class AutofillStore(context: Context) {
     fun setSessionKey(keyB64: String) {
         prefs.edit()
             .putString(KEY_SESSION, encrypt(Base64.decode(keyB64, Base64.NO_WRAP)))
-            .apply()
+            .commit()
     }
 
     fun loadSessionKey(): ByteArray? {
@@ -104,7 +105,7 @@ class AutofillStore(context: Context) {
     }
 
     fun clearSessionKey() {
-        prefs.edit().remove(KEY_SESSION).apply()
+        prefs.edit().remove(KEY_SESSION).commit()
     }
 
     /** Stores the master-wrapped pending-saves payload (base64). */
@@ -117,4 +118,11 @@ class AutofillStore(context: Context) {
     fun clearPending() {
         prefs.edit().remove(KEY_PENDING).apply()
     }
+
+    /** Whether every fill must be confirmed with biometrics/PIN (user setting). */
+    fun setRequireAuth(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_REQUIRE_AUTH, enabled).apply()
+    }
+
+    fun isRequireAuthEnabled(): Boolean = prefs.getBoolean(KEY_REQUIRE_AUTH, false)
 }

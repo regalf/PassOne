@@ -1,6 +1,10 @@
 package dev.passone.passone_app
 
+import android.app.PendingIntent
 import android.app.assist.AssistStructure
+import android.content.Intent
+import android.content.IntentSender
+import android.os.Build
 import android.os.CancellationSignal
 import android.service.autofill.AutofillService
 import android.service.autofill.Dataset
@@ -10,6 +14,7 @@ import android.service.autofill.FillResponse
 import android.service.autofill.SaveCallback
 import android.service.autofill.SaveInfo
 import android.service.autofill.SaveRequest
+import android.util.Log
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
@@ -30,6 +35,12 @@ import javax.crypto.spec.SecretKeySpec
  * plaintext on the device.
  */
 class PassAutofillService : AutofillService() {
+
+    private companion object {
+        const val TAG = "PassOneAutofill"
+        private const val REQ_UNLOCK = 1001
+        private const val REQ_AUTH = 1002
+    }
 
     private data class Credential(
         val name: String,
@@ -52,11 +63,42 @@ class PassAutofillService : AutofillService() {
         val store = AutofillStore(this)
         val sessionKey = store.loadSessionKey()
         val snapshot = store.loadSnapshot()
+        Log.d(TAG, "fill: id=${request.id} flags=${request.flags} sessionKey=${sessionKey != null} snapshot=${snapshot != null}")
         if (sessionKey == null || snapshot == null) {
-            callback.onSuccess(null)
+            val structure = request.fillContexts.lastOrNull()?.structure
+            val ids = structure?.let { collectFields(it) }
+            // Vault locked: offer an "unlock" prompt instead of nothing, but only
+            // when there is actually a fillable field (never pollute arbitrary
+            // fields such as a search bar).
+            if (snapshot != null && (ids?.username != null || ids?.password != null)) {
+                val target = ids?.username ?: ids?.password!!
+                val pending = PendingIntent.getActivity(
+                    this,
+                    REQ_UNLOCK,
+                    Intent(this, MainActivity::class.java)
+                        .putExtra(MainActivity.EXTRA_AUTOFILL_UNLOCK, true)
+                        .setAction("passone.autofill.unlock"),
+                    PendingIntent.FLAG_UPDATE_CURRENT or mutableFlag(),
+                )
+                val dataset = Dataset.Builder(
+                    datasetPresentation(
+                        getString(R.string.autofill_locked_title),
+                        getString(R.string.autofill_locked_subtitle),
+                    ),
+                )
+                    .setAuthentication(pending.intentSender)
+                    // We have no value (vault locked); the framework only needs
+                    // the field id to accept the dataset.
+                    .setValue(target, null)
+                    .build()
+                callback.onSuccess(FillResponse.Builder().addDataset(dataset).build())
+            } else {
+                callback.onSuccess(null)
+            }
             return
         }
         val entries = decryptSnapshot(sessionKey, snapshot)
+        Log.d(TAG, "fill: snapshot entries=${entries.size}")
         if (entries.isEmpty()) {
             callback.onSuccess(null)
             return
@@ -66,6 +108,7 @@ class PassAutofillService : AutofillService() {
         val ids = structure?.let { collectFields(it) } ?: FieldIds()
         val usernameId = ids.username
         val passwordId = ids.password
+        Log.d(TAG, "fill: usernameId=${usernameId != null} passwordId=${passwordId != null} webDomain=${ids.webDomain}")
         // No fillable field in this structure: nothing we can fill or save.
         if (usernameId == null && passwordId == null) {
             callback.onSuccess(null)
@@ -86,37 +129,73 @@ class PassAutofillService : AutofillService() {
             response.setSaveInfo(saveBuilder.build())
         }
         val domain = resolveDomain(structure)
+        val requireAuth = store.isRequireAuthEnabled()
         val matches = if (manual) entries else entries.filter { matchesEntry(it, domain) }
-        if (usernameId != null && passwordId != null) {
+        Log.d(TAG, "fill: domain=$domain manual=$manual requireAuth=$requireAuth matches=${matches.size}/${entries.size}")
+        if (usernameId != null || passwordId != null) {
             for (entry in matches) {
-                val presentation = RemoteViews(packageName, R.layout.autofill_dataset)
-                presentation.setTextViewText(
-                    R.id.autofill_label,
-                    entry.name.ifBlank { entry.username }.ifBlank { "PassOne" },
-                )
-                val builder = Dataset.Builder(presentation)
-                    .setValue(usernameId, AutofillValue.forText(entry.username))
-                    .setValue(passwordId, AutofillValue.forText(entry.password))
-                response.addDataset(builder.build())
-            }
-        } else if (usernameId != null || passwordId != null) {
-            // A single field is enough to offer a fill candidate.
-            for (entry in matches) {
-                val presentation = RemoteViews(packageName, R.layout.autofill_dataset)
-                presentation.setTextViewText(
-                    R.id.autofill_label,
-                    entry.name.ifBlank { entry.username }.ifBlank { "PassOne" },
-                )
-                val builder = Dataset.Builder(presentation)
+                val title = entry.name.ifBlank { domain ?: "PassOne" }
+                val subtitle = entry.username
+                val builder = Dataset.Builder(datasetPresentation(title, subtitle))
                 if (usernameId != null) {
                     builder.setValue(usernameId, AutofillValue.forText(entry.username))
-                } else {
-                    builder.setValue(passwordId!!, AutofillValue.forText(entry.password))
+                }
+                if (passwordId != null) {
+                    builder.setValue(passwordId, AutofillValue.forText(entry.password))
+                }
+                if (requireAuth) {
+                    builder.setAuthentication(
+                        authGate(usernameId, passwordId, entry.username, entry.password),
+                    )
                 }
                 response.addDataset(builder.build())
             }
         }
         callback.onSuccess(response.build())
+    }
+
+    /**
+     * A biometric gate for datasets, used when "always ask" is enabled. The
+     * field ids and values are passed through the intent so the auth activity
+     * can return the populated dataset (see AutofillAuthActivity).
+     */
+    private fun authGate(
+        usernameId: AutofillId?,
+        passwordId: AutofillId?,
+        username: String?,
+        password: String?,
+    ): IntentSender {
+        val intent = Intent(this, AutofillAuthActivity::class.java)
+            .setAction("passone.autofill.auth")
+        if (usernameId != null) {
+            intent.putExtra(AutofillAuthActivity.EXTRA_USERNAME_ID, usernameId)
+            intent.putExtra(AutofillAuthActivity.EXTRA_USERNAME, username)
+        }
+        if (passwordId != null) {
+            intent.putExtra(AutofillAuthActivity.EXTRA_PASSWORD_ID, passwordId)
+            intent.putExtra(AutofillAuthActivity.EXTRA_PASSWORD, password)
+        }
+        return PendingIntent.getActivity(
+            this,
+            REQ_AUTH,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or mutableFlag(),
+        ).intentSender
+    }
+
+    private fun mutableFlag(): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_MUTABLE
+        } else {
+            0
+        }
+
+    /** Two-line presentation: site (title) on top, username (subtitle) below. */
+    private fun datasetPresentation(title: String, subtitle: String): RemoteViews {
+        val view = RemoteViews(packageName, R.layout.autofill_dataset)
+        view.setTextViewText(R.id.autofill_label, title)
+        view.setTextViewText(R.id.autofill_subtitle, subtitle)
+        return view
     }
 
     override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {
@@ -204,6 +283,7 @@ class PassAutofillService : AutofillService() {
     private fun walk(node: AssistStructure.ViewNode, ids: FieldIds) {
         val id = node.autofillId
         val hints = node.autofillHints
+        val text = node.text?.toString()?.trim()
         if (id != null && hints != null) {
             for (hint in hints) {
                 val h = hint.lowercase()
@@ -214,14 +294,13 @@ class PassAutofillService : AutofillService() {
                 }
             }
         }
-        if (ids.webDomain == null) {
-            val cls = node.className?.toString()?.lowercase()
-            if (cls != null && cls.contains("webview")) {
-                val text = node.text?.toString()?.trim()
-                if (!text.isNullOrBlank() && text.contains("://")) {
-                    ids.webDomain = text
-                }
-            }
+        // Browsers expose the page domain on any node via getWebDomain().
+        if (ids.webDomain.isNullOrBlank() && !node.webDomain.isNullOrBlank()) {
+            ids.webDomain = node.webDomain
+        }
+        // Fallback for webviews that carry the URL in the node text instead.
+        if (ids.webDomain == null && text != null && text.contains("://")) {
+            ids.webDomain = text
         }
         for (i in 0 until node.childCount) {
             walk(node.getChildAt(i), ids)
@@ -262,6 +341,8 @@ class PassAutofillService : AutofillService() {
         val web = structure?.let { collectFields(it).webDomain }
         if (web != null) {
             hostOf(web)?.let { return it }
+            // getWebDomain() usually carries the bare host (no scheme).
+            if (web.isNotBlank() && !web.contains(" ")) return web.lowercase()
         }
         return domainFromPackage(packageOf(structure))
     }

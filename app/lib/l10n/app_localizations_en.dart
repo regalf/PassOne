@@ -484,6 +484,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get autofillRequireAuth => 'Always require authentication';
+
+  @override
+  String get autofillRequireAuthSub =>
+      'Ask for biometrics or PIN before every fill, even when the vault is already unlocked.';
+
+  @override
   String get sectionGeneral => 'General';
 
   @override
