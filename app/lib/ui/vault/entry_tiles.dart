@@ -11,7 +11,7 @@ import '../../state/providers.dart';
 import 'entry_edit_screen.dart';
 import 'ssh_edit_screen.dart';
 
-enum EntryListKind { password, totp, ssh, all }
+enum EntryListKind { password, totp, ssh, passkey, all }
 
 /// Reusable, stateful list of vault entries with per-type tiles. Keeps its own
 /// TOTP ticker so codes stay in sync wherever the list is embedded.
@@ -105,11 +105,13 @@ class _EntryListState extends ConsumerState<EntryList> {
       EntryListKind.password => l10n.emptyVault,
       EntryListKind.totp => l10n.emptyTotp,
       EntryListKind.ssh => l10n.emptySsh,
+      EntryListKind.passkey => l10n.emptyPasskeys,
       EntryListKind.all => l10n.emptyFolder,
     };
   }
 
   Widget _tile(VaultEntry e, ThemeData theme) {
+    if (e.isPasskey) return _passkeyTile(e, theme);
     if (e.isTotp) return _totpTile(e, theme);
     if (e.isSsh) return _sshTile(e, theme);
     return _passwordTile(e, theme);
@@ -216,6 +218,60 @@ class _EntryListState extends ConsumerState<EntryList> {
         ],
       ),
     );
+  }
+
+  Widget _passkeyTile(VaultEntry e, ThemeData theme) {
+    final rp = e.passkeyRpId ?? _urlHost(e.url);
+    return ListTile(
+      leading: const CircleAvatar(child: Icon(Icons.fingerprint)),
+      title: Text(e.name),
+      subtitle: Text(
+        [e.username, rp ?? ''].where((s) => s.isNotEmpty).join(' · '),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      onTap: () => _edit(e),
+      trailing: PopupMenuButton<String>(
+        onSelected: (v) => _passkeyAction(e, v),
+        itemBuilder: (_) => [
+          PopupMenuItem(
+              value: 'copy_user',
+              child: Text(context.l10n.copyUsername)),
+          if (e.passkeyCredentialId != null)
+            PopupMenuItem(
+                value: 'copy_cred',
+                child: Text(context.l10n.copyCredentialId)),
+          PopupMenuItem(value: 'delete', child: Text(context.l10n.delete)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _passkeyAction(VaultEntry e, String action) async {
+    ref.read(sessionControllerProvider.notifier).touch();
+    switch (action) {
+      case 'copy_user':
+        await Clipboard.setData(ClipboardData(text: e.username));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.l10n.usernameCopied)));
+        }
+      case 'copy_cred':
+        await Clipboard.setData(ClipboardData(text: e.passkeyCredentialId ?? ''));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.l10n.credentialIdCopied)));
+        }
+      case 'delete':
+        if (await _confirmDelete(e)) await _remove(e.id);
+    }
+  }
+
+  static String? _urlHost(String url) {
+    final cleaned =
+        url.trim().replaceFirst(RegExp(r'^https?://', caseSensitive: false), '');
+    final host = cleaned.split('/').first.split(':').first.toLowerCase();
+    return host.isEmpty ? null : host;
   }
 
   Future<void> _edit(VaultEntry e) async {

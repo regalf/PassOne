@@ -440,6 +440,12 @@ abstract class AppLocalizations {
   /// **'SSH'**
   String get tabSsh;
 
+  /// No description provided for @tabPasskeys.
+  ///
+  /// In en, this message translates to:
+  /// **'Passkeys'**
+  String get tabPasskeys;
+
   /// No description provided for @newFab.
   ///
   /// In en, this message translates to:
@@ -566,6 +572,12 @@ abstract class AppLocalizations {
   /// **'No SSH keys.\nPress \"New\" to add a key.'**
   String get emptySsh;
 
+  /// No description provided for @emptyPasskeys.
+  ///
+  /// In en, this message translates to:
+  /// **'No passkeys yet.\nCreate one from a website that supports passkeys.'**
+  String get emptyPasskeys;
+
   /// No description provided for @noResults.
   ///
   /// In en, this message translates to:
@@ -607,6 +619,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copy passphrase'**
   String get copyPassphrase;
+
+  /// No description provided for @copyCredentialId.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy credential ID'**
+  String get copyCredentialId;
+
+  /// No description provided for @credentialIdCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Credential ID copied'**
+  String get credentialIdCopied;
 
   /// No description provided for @delete.
   ///
@@ -943,6 +967,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Settings'**
   String get settingsTitle;
+
+  /// No description provided for @passkeyCreateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a passkey'**
+  String get passkeyCreateTitle;
+
+  /// No description provided for @passkeyCreateBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Save a passkey for {rpName} as {username}?'**
+  String passkeyCreateBody(Object rpName, Object username);
+
+  /// No description provided for @passkeyCreateConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Create passkey'**
+  String get passkeyCreateConfirm;
+
+  /// No description provided for @passkeyGetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a passkey'**
+  String get passkeyGetTitle;
+
+  /// No description provided for @passkeyGetHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which identity to use'**
+  String get passkeyGetHint;
 
   /// No description provided for @autofill.
   ///

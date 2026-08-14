@@ -33,6 +33,61 @@ class AutofillStore(context: Context) {
         private const val KEY_SESSION = "session_key"
         private const val KEY_PENDING = "pending"
         private const val KEY_REQUIRE_AUTH = "require_auth"
+        private const val KEY_CREATE_REQUEST = "pending_passkey_create"
+        private const val KEY_GET_REQUEST = "pending_passkey_get"
+    }
+
+    // ---- passkey request stashing ---------------------------------------
+    //
+    // The Credential Manager requests are stashed here while the vault is
+    // locked so that, after the unlock, the app can complete the create/get
+    // flow. They are short-lived (a challenge + rpId), so plaintext is fine.
+
+    /** Stashes the create request JSON (from `candidateQueryData`). */
+    fun savePasskeyCreateRequest(requestJson: String) {
+        prefs.edit().putString(KEY_CREATE_REQUEST, requestJson).commit()
+    }
+
+    /** The stashed create request JSON, or null. Non-destructive. */
+    fun getPasskeyCreateRequest(): String? = prefs.getString(KEY_CREATE_REQUEST, null)
+
+    fun clearPasskeyCreateRequest() {
+        prefs.edit().remove(KEY_CREATE_REQUEST).commit()
+    }
+
+    /** Stashes a list of get requests (request JSON + client data hash + rpId). */
+    fun savePasskeyGetRequests(requests: List<Triple<String, ByteArray, String>>) {
+        val array = org.json.JSONArray()
+        for ((json, hash, rpId) in requests) {
+            array.put(
+                org.json.JSONObject()
+                    .put("r", json)
+                    .put("h", WebAuthn.b64url(hash))
+                    .put("id", rpId),
+            )
+        }
+        prefs.edit().putString(KEY_GET_REQUEST, array.toString()).commit()
+    }
+
+    /** Parsed list of (requestJson, clientDataHash, rpId) of the stashed get request. */
+    fun getPasskeyGetRequests(): List<Triple<String, ByteArray, String>> {
+        val raw = prefs.getString(KEY_GET_REQUEST, null) ?: return emptyList()
+        return try {
+            val array = org.json.JSONArray(raw)
+            buildList {
+                for (i in 0 until array.length()) {
+                    val o = array.getJSONObject(i)
+                    val hash = WebAuthn.b64urlDecode(o.getString("h"))
+                    add(Triple(o.getString("r"), hash, o.getString("id")))
+                }
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun clearPasskeyGetRequest() {
+        prefs.edit().remove(KEY_GET_REQUEST).commit()
     }
 
     private fun masterKey(): SecretKey {

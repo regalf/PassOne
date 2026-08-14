@@ -33,9 +33,10 @@ class _EntryListScreenState extends ConsumerState<EntryListScreen> {
 
   List<VaultEntry> _filter(VaultData vault) {
     var list = vault.entries.where((e) => switch (_kind) {
-          EntryListKind.password => !e.isTotp && !e.isSsh,
+          EntryListKind.password => !e.isTotp && !e.isSsh && !e.isPasskey,
           EntryListKind.totp => e.isTotp,
           EntryListKind.ssh => e.isSsh,
+          EntryListKind.passkey => e.isPasskey,
           EntryListKind.all => true,
         }).toList();
     if (_folderId != null) {
@@ -55,6 +56,7 @@ class _EntryListScreenState extends ConsumerState<EntryListScreen> {
       EntryListKind.password => l10n.tabPasswords,
       EntryListKind.totp => l10n.tabTotp,
       EntryListKind.ssh => l10n.tabSsh,
+      EntryListKind.passkey => l10n.tabPasskeys,
       EntryListKind.all => l10n.appTitle,
     };
   }
@@ -73,6 +75,9 @@ class _EntryListScreenState extends ConsumerState<EntryListScreen> {
   }
 
   Widget _floatingActionButton(VaultData vault) {
+    // Passkeys can only be created through the system Credential Manager
+    // (browser/web app), never manually from the app.
+    if (_kind == EntryListKind.passkey) return const SizedBox.shrink();
     if (_kind == EntryListKind.totp) {
       return FloatingActionButton.extended(
         onPressed: () => _scanQr(vault),

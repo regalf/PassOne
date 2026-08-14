@@ -194,6 +194,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tabSsh => 'SSH';
 
   @override
+  String get tabPasskeys => 'Passkeys';
+
+  @override
   String get newFab => 'New';
 
   @override
@@ -263,6 +266,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get emptySsh => 'No SSH keys.\nPress \"New\" to add a key.';
 
   @override
+  String get emptyPasskeys =>
+      'No passkeys yet.\nCreate one from a website that supports passkeys.';
+
+  @override
   String noResults(Object query) {
     return 'No results for \"$query\".';
   }
@@ -284,6 +291,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get copyPassphrase => 'Copy passphrase';
+
+  @override
+  String get copyCredentialId => 'Copy credential ID';
+
+  @override
+  String get credentialIdCopied => 'Credential ID copied';
 
   @override
   String get delete => 'Delete';
@@ -461,6 +474,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsTitle => 'Settings';
+
+  @override
+  String get passkeyCreateTitle => 'Create a passkey';
+
+  @override
+  String passkeyCreateBody(Object rpName, Object username) {
+    return 'Save a passkey for $rpName as $username?';
+  }
+
+  @override
+  String get passkeyCreateConfirm => 'Create passkey';
+
+  @override
+  String get passkeyGetTitle => 'Use a passkey';
+
+  @override
+  String get passkeyGetHint => 'Choose which identity to use';
 
   @override
   String get autofill => 'Autofill';

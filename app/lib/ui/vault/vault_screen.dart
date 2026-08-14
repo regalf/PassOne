@@ -6,6 +6,7 @@ import '../../crypto/models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
+import '../../state/session.dart';
 import '../settings/settings_screen.dart';
 import 'entry_edit_screen.dart';
 import 'entry_list_screen.dart';
@@ -63,6 +64,16 @@ class VaultHomeScreen extends ConsumerStatefulWidget {
 class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
   final TextEditingController _search = TextEditingController();
   String _query = '';
+  bool _handlingPending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // A passkey request may already be stashed when this screen first builds
+    // (unlock triggered by the Credential Manager): handle it on the next
+    // frame, then rely on ref.listen for later launches.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeHandlePending());
+  }
 
   @override
   void dispose() {
@@ -84,11 +95,13 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
   }
 
   int _passwordCount() =>
-      _vault.entries.where((e) => !e.isTotp && !e.isSsh).length;
+      _vault.entries.where((e) => !e.isTotp && !e.isSsh && !e.isPasskey).length;
 
   int _totpCount() => _vault.entries.where((e) => e.isTotp).length;
 
   int _sshCount() => _vault.entries.where((e) => e.isSsh).length;
+
+  int _passkeyCount() => _vault.entries.where((e) => e.isPasskey).length;
 
   int _folderCount(VaultFolder f) =>
       _vault.entries.where((e) => e.folderId == f.id).length;
@@ -96,6 +109,14 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    // A Credential Manager passkey request arrived while this screen is shown:
+    // confirm the registration or let the user pick a passkey.
+    ref.listen<SessionState>(sessionControllerProvider, (prev, next) {
+      if (prev?.pendingPasskeyCreate != next.pendingPasskeyCreate ||
+          prev?.pendingPasskeyGet != next.pendingPasskeyGet) {
+        _maybeHandlePending();
+      }
+    });
     return Scaffold(
       body: Column(
         children: [
@@ -257,6 +278,15 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
           onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => const EntryListScreen(kind: EntryListKind.ssh))),
         ),
+        _CategoryCard(
+          icon: Icons.fingerprint,
+          title: l10n.tabPasskeys,
+          count: _passkeyCount(),
+          countLabel: l10n.entryCount(_passkeyCount()),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) =>
+                  const EntryListScreen(kind: EntryListKind.passkey))),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 20, 8, 0),
           child: Row(
@@ -416,6 +446,115 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
       await ref.read(sessionControllerProvider.notifier).saveVault(vault);
     } catch (e) {
       _showSyncError(e);
+    }
+  }
+
+  // ---- Credential Manager passkey flow ----------------------------------
+
+  void _maybeHandlePending() {
+    if (_handlingPending) return;
+    final session = ref.read(sessionControllerProvider);
+    if (session.pendingPasskeyCreate == null && session.pendingPasskeyGet == null) {
+      return;
+    }
+    _handlingPending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final s = ref.read(sessionControllerProvider);
+      if (s.pendingPasskeyCreate != null) {
+        _showPasskeyCreateDialog(s.pendingPasskeyCreate!);
+      } else if (s.pendingPasskeyGet != null) {
+        _showPasskeyGetDialog(s.pendingPasskeyGet!);
+      } else {
+        _handlingPending = false;
+      }
+    });
+  }
+
+  Future<void> _showPasskeyCreateDialog(Map<String, dynamic> req) async {
+    final l10n = context.l10n;
+    final rpName = (req['rpName'] as String?)?.trim();
+    final rpId = (req['rpId'] as String?) ?? '';
+    final userName = (req['userName'] as String?)?.trim() ?? '';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.passkeyCreateTitle),
+        content: Text(l10n.passkeyCreateBody(
+          (rpName == null || rpName.isEmpty) ? rpId : rpName,
+          userName.isEmpty ? '—' : userName,
+        )),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(ctx.l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(ctx.l10n.passkeyCreateConfirm),
+          ),
+        ],
+      ),
+    );
+    _handlingPending = false;
+    if (!mounted) return;
+    final controller = ref.read(sessionControllerProvider.notifier);
+    if (confirmed == true) {
+      try {
+        await controller.confirmPasskeyCreate();
+      } catch (e) {
+        _showSyncError(e);
+      }
+    } else {
+      await controller.cancelPasskeyCreate();
+    }
+  }
+
+  Future<void> _showPasskeyGetDialog(Map<String, dynamic> req) async {
+    final l10n = context.l10n;
+    final controller = ref.read(sessionControllerProvider.notifier);
+    final candidates = controller.passkeyGetCandidates();
+    if (candidates.isEmpty) {
+      _handlingPending = false;
+      await controller.cancelPasskeyGet();
+      return;
+    }
+    final selected = await showDialog<VaultEntry>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(l10n.passkeyGetTitle),
+        children: [
+          for (final e in candidates)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(ctx).pop(e),
+              child: Row(
+                children: [
+                  Icon(Icons.key_outlined,
+                      color: Theme.of(ctx).colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      e.username.isEmpty ? e.name : e.username,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    _handlingPending = false;
+    if (!mounted) return;
+    if (selected != null) {
+      try {
+        await controller.confirmPasskeyGet(selected);
+      } catch (e) {
+        _showSyncError(e);
+      }
+    } else {
+      await controller.cancelPasskeyGet();
     }
   }
 }

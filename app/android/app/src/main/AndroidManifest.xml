@@ -34,6 +34,12 @@
             android:excludeFromRecents="true"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity
+            android:name=".PasskeyAuthActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -51,6 +57,20 @@
             <meta-data
                 android:name="android.service.autofill.autofill_service"
                 android:resource="@xml/autofill_service" />
+        </service>
+
+        <!-- Credential Manager provider for passkeys (API 34+). -->
+        <service
+            android:name=".PasskeyProviderService"
+            android:label="PassOne"
+            android:exported="true"
+            android:permission="android.permission.BIND_CREDENTIAL_PROVIDER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.credentials.CredentialProviderService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.credentials.provider"
+                android:resource="@xml/provider" />
         </service>
     </application>
     <!-- Required to query activities that can process text, see:

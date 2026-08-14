@@ -5,4 +5,10 @@
     <string name="autofill_auth_title">PassOne</string>
     <string name="autofill_auth_subtitle">Conferma per compilare</string>
     <string name="autofill_auth_cancel">Annulla</string>
+    <string name="passkey_create_entry_title">PassOne</string>
+    <string name="passkey_create_entry_subtitle">Salva una nuova passkey nella tua vault</string>
+    <string name="passkey_unlock_title">Sblocca PassOne</string>
+    <string name="passkey_auth_title">PassOne</string>
+    <string name="passkey_auth_subtitle">Accedi con passkey</string>
+    <string name="passkey_auth_cancel">Annulla</string>
 </resources>

@@ -74,12 +74,103 @@ class AutofillBridge {
     } catch (_) {}
   }
 
+  /// How this activity instance was launched: "create" (passkey registration),
+  /// "get" (passkey assertion after a locked vault), "unlock" (plain autofill
+  /// unlock) or "none".
+  Future<String> getPasskeyLaunch() async {
+    try {
+      return await _channel.invokeMethod<String>('getPasskeyLaunch') ?? 'none';
+    } catch (_) {
+      return 'none';
+    }
+  }
+
+  /// The stashed create request (from the Credential Manager), or null.
+  Future<Map<String, dynamic>?> takePendingPasskeyCreate() async {
+    final m = await _channel.invokeMapMethod<dynamic, dynamic>(
+      'takePendingPasskeyCreate',
+    );
+    if (m == null) return null;
+    return Map<String, dynamic>.from(m);
+  }
+
+  /// The stashed get request (request JSON + client data hash + rpId), or null.
+  Future<Map<String, dynamic>?> takePendingPasskeyGet() async {
+    final m = await _channel.invokeMapMethod<dynamic, dynamic>(
+      'takePendingPasskeyGet',
+    );
+    if (m == null) return null;
+    return Map<String, dynamic>.from(m);
+  }
+
+  /// Asks the native side to generate a new key pair and build the WebAuthn
+  /// registration response for the given create request.
+  Future<Map<String, dynamic>> passkeyCreateGenerate({
+    required String requestJson,
+    required String username,
+    required String userHandle,
+  }) async {
+    final m = await _channel.invokeMapMethod<dynamic, dynamic>(
+      'passkeyCreateGenerate',
+      {
+        'requestJson': requestJson,
+        'username': username,
+        'userHandle': userHandle,
+      },
+    );
+    return Map<String, dynamic>.from(m!);
+  }
+
+  /// Tells the native side the passkey was persisted: the launch activity
+  /// finishes with the registration response, returning to the host app.
+  Future<void> passkeyCreateDone(String responseJson) async {
+    await _channel.invokeMethod<void>(
+      'passkeyCreateDone',
+      {'responseJson': responseJson},
+    );
+  }
+
+  Future<void> passkeyCreateCancel() async {
+    await _channel.invokeMethod<void>('passkeyCreateCancel');
+  }
+
+  /// Completes a passkey assertion initiated while the vault was locked. The
+  /// native side signs with [privateKeyPkcs8] and returns the result to the
+  /// Credential Manager framework.
+  Future<void> passkeyGetDone({
+    required String requestJson,
+    required String clientDataHash,
+    required String credentialId,
+    required String privateKeyPkcs8,
+    required String rpId,
+    required String? userHandle,
+    required String? publicKey,
+  }) async {
+    await _channel.invokeMethod<void>('passkeyGetDone', {
+      'requestJson': requestJson,
+      'clientDataHash': clientDataHash,
+      'credentialId': credentialId,
+      'privateKey': privateKeyPkcs8,
+      'rpId': rpId,
+      'userHandle': userHandle,
+      'publicKey': publicKey,
+    });
+  }
+
+  Future<void> passkeyGetCancel() async {
+    await _channel.invokeMethod<void>('passkeyGetCancel');
+  }
+
   Future<void> openSystemSettings() async {
     await _channel.invokeMethod<void>('openSettings');
   }
 
-  /// Builds the credential snapshot (only entries with username+password) and
-  /// encrypts it with [key] into nonce(12) || AES-GCM ciphertext+tag.
+  /// Builds the credential snapshot and encrypts it with [key] into
+  /// nonce(12) || AES-GCM ciphertext+tag.
+  ///
+  /// v2 adds a `passkeys` array (one object per WebAuthn passkey) on top of
+  /// the v1 `entries` (username+password) array, so the native services can
+  /// offer passkeys from the Credential Manager provider.
   static Future<Uint8List> encryptSnapshot(
       Uint8List key, VaultData vault) async {
     final entries = vault.entries
@@ -92,7 +183,26 @@ class AutofillBridge {
               'url': e.url,
             })
         .toList();
-    final payload = VaultCrypto.encodeJson({'v': 1, 'entries': entries});
+    final passkeys = vault.entries
+        .where((e) => e.isPasskey)
+        .map((e) => {
+              'id': e.id,
+              'name': e.name,
+              'username': e.username,
+              'url': e.url,
+              'credentialId': e.passkeyCredentialId,
+              'privateKey': e.passkeyPrivateKey,
+              'publicKey': e.passkeyPublicKey,
+              'rpId': e.passkeyRpId,
+              'userHandle': e.passkeyUserHandle,
+              'counter': e.passkeyCounter,
+            })
+        .toList();
+    final payload = VaultCrypto.encodeJson({
+      'v': 2,
+      'entries': entries,
+      'passkeys': passkeys,
+    });
     final (blob, nonce) = await VaultCrypto.encrypt(key, payload);
     final out = Uint8List(nonce.length + blob.length);
     out.setRange(0, nonce.length, nonce);

@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/client.dart';
@@ -39,6 +41,13 @@ class SessionState {
   final Uint8List? vaultKey;
   final VaultData? vault;
   final int lastAutofillImports;
+  /// Passkey registration requested by the system Credential Manager while the
+  /// vault was locked (or not): parsed request from the native stash, shown to
+  /// the user as a confirmation dialog once the vault is unlocked.
+  final Map<String, dynamic>? pendingPasskeyCreate;
+  /// Passkey assertion requested by the system while the vault was locked:
+  /// the app shows a picker of the matching passkeys after the unlock.
+  final Map<String, dynamic>? pendingPasskeyGet;
 
   const SessionState({
     this.status = AuthStatus.unauthenticated,
@@ -49,6 +58,8 @@ class SessionState {
     this.vaultKey,
     this.vault,
     this.lastAutofillImports = 0,
+    this.pendingPasskeyCreate,
+    this.pendingPasskeyGet,
   });
 
   SessionState copyWith({
@@ -60,6 +71,8 @@ class SessionState {
     Uint8List? vaultKey,
     VaultData? vault,
     int? lastAutofillImports,
+    Map<String, dynamic>? pendingPasskeyCreate,
+    Map<String, dynamic>? pendingPasskeyGet,
   }) {
     return SessionState(
       status: status ?? this.status,
@@ -70,6 +83,9 @@ class SessionState {
       vaultKey: vaultKey ?? this.vaultKey,
       vault: vault ?? this.vault,
       lastAutofillImports: lastAutofillImports ?? this.lastAutofillImports,
+      pendingPasskeyCreate:
+          pendingPasskeyCreate ?? this.pendingPasskeyCreate,
+      pendingPasskeyGet: pendingPasskeyGet ?? this.pendingPasskeyGet,
     );
   }
 }
@@ -477,6 +493,12 @@ class SessionController extends StateNotifier<SessionState> {
     _manualLock = manual;
     _lockTimer?.cancel();
     _lockTimer = null;
+    // A pending passkey create/get request is aborted: the native activity
+    // must not keep the caller waiting while the vault is locked.
+    if (state.pendingPasskeyCreate != null || state.pendingPasskeyGet != null) {
+      unawaited(_autofill.passkeyCreateCancel());
+      unawaited(_autofill.passkeyGetCancel());
+    }
     // The autofill session key is wiped: the native service can no longer
     // decrypt the snapshot and stops offering autofill until the next unlock.
     if (_autofillSupported) {
@@ -527,6 +549,9 @@ class SessionController extends StateNotifier<SessionState> {
   /// while the isolate is suspended, so it would fire too late).
   void checkResumed() {
     if (state.status != AuthStatus.unlocked) return;
+    // A Credential Manager passkey request may have (re)launched the activity
+    // while the app was backgrounded with the vault already unlocked.
+    unawaited(_checkPasskeyLaunch());
     final minutes = state.settings.lockTimeout.minutes;
     if (minutes < 0) return;
     final remaining = Duration(minutes: minutes) - _idle.elapsed;
@@ -947,9 +972,11 @@ class SessionController extends StateNotifier<SessionState> {
       _autofillKey = null;
       return;
     }
-    // If this unlock was triggered by the autofill "vault locked" prompt, finish
-    // the unlock activity so the user returns to the host app.
-    unawaited(_autofill.notifyUnlockFinished());
+    // If this unlock was triggered by the autofill "vault locked" prompt (or by
+    // a Credential Manager passkey request), drive the native activity from the
+    // app: plain unlocks finish the activity, passkey requests get stashed into
+    // the state so the UI can confirm/pick and return the credential.
+    unawaited(_checkPasskeyLaunch());
     // Import credentials the system captured while the vault was locked. Runs
     // best-effort so a failure (e.g. server unreachable) never wipes the session.
     unawaited(_importPendingSaves());
@@ -1006,6 +1033,156 @@ class SessionController extends StateNotifier<SessionState> {
     } catch (_) {
       // Never wipe the session because of a failed import.
     }
+  }
+
+  /// Detects how the current activity was launched and, for passkey create/get
+  /// requests, moves the request stashed natively into the app state so the UI
+  /// can drive the flow. Runs after every unlock and on resume.
+  Future<void> _checkPasskeyLaunch() async {
+    if (!_autofillSupported) return;
+    try {
+      final launch = await _autofill.getPasskeyLaunch();
+      debugPrint('PassOnePasskey: checkPasskeyLaunch -> $launch');
+      if (launch == 'create' && state.pendingPasskeyCreate == null) {
+        final req = await _autofill.takePendingPasskeyCreate();
+        debugPrint('PassOnePasskey: pending create=${req != null}');
+        if (req != null) {
+          state = state.copyWith(pendingPasskeyCreate: req);
+        }
+      } else if (launch == 'get' && state.pendingPasskeyGet == null) {
+        final req = await _autofill.takePendingPasskeyGet();
+        debugPrint('PassOnePasskey: pending get=${req != null}');
+        if (req != null) {
+          state = state.copyWith(pendingPasskeyGet: req);
+        }
+      } else if (launch == 'unlock') {
+        // Plain autofill "vault locked" prompt: return to the host app.
+        await _autofill.notifyUnlockFinished();
+      }
+    } catch (_) {
+      // Channel unavailable (tests / non-Android host).
+    }
+  }
+
+  /// Confirms a passkey registration requested by the system Credential
+  /// Manager: generates the key pair natively, persists the passkey in the
+  /// vault (and syncs it) and returns the registration response to the caller.
+  Future<void> confirmPasskeyCreate() async {
+    final req = state.pendingPasskeyCreate;
+    if (req == null) return;
+    state = state.copyWith(pendingPasskeyCreate: null);
+    try {
+      debugPrint('PassOnePasskey: confirmPasskeyCreate start');
+      final outcome = await _autofill.passkeyCreateGenerate(
+        requestJson: req['requestJson'] as String,
+        username: (req['userName'] as String?) ?? '',
+        userHandle: (req['userHandle'] as String?) ?? '',
+      );
+      final rpId =
+          (outcome['rpId'] as String?) ?? ((req['rpId'] as String?) ?? '');
+      final rpName = (req['rpName'] as String?)?.trim();
+      final userName = (req['userName'] as String?)?.trim() ?? '';
+      final userHandle = (req['userHandle'] as String?)?.trim() ?? '';
+      final entry = VaultEntry.create(
+        name: (rpName == null || rpName.isEmpty) ? rpId : rpName,
+        url: 'https://$rpId',
+        username: userName,
+        passkeyCredentialId: outcome['credentialId'] as String?,
+        passkeyPrivateKey: outcome['privateKeyPkcs8'] as String?,
+        passkeyPublicKey: outcome['publicKeySpki'] as String?,
+        passkeyRpId: rpId,
+        passkeyUserHandle: userHandle.isEmpty ? null : userHandle,
+        passkeyCounter: 0,
+      );
+      final vault = state.vault ?? VaultData();
+      debugPrint('PassOnePasskey: saving passkey entry to vault (${vault.entries.length} entries)');
+      await saveVault(VaultData(
+        entries: [...vault.entries, entry],
+        folders: vault.folders,
+      ));
+      debugPrint('PassOnePasskey: saveVault ok, sending createDone');
+      await _autofill.passkeyCreateDone(outcome['responseJson'] as String);
+    } catch (e) {
+      debugPrint('PassOnePasskey: confirmPasskeyCreate FAILED: $e');
+      // Nothing was persisted: cancel the native registration.
+      await _autofill.passkeyCreateCancel();
+      rethrow;
+    }
+  }
+
+  /// Cancels a pending passkey registration.
+  Future<void> cancelPasskeyCreate() async {
+    state = state.copyWith(pendingPasskeyCreate: null);
+    try {
+      await _autofill.passkeyCreateCancel();
+    } catch (_) {}
+  }
+
+  /// The vault passkeys matching the pending get request: same rpId and, when
+  /// present in the request, in `allowCredentials`.
+  List<VaultEntry> passkeyGetCandidates() {
+    final req = state.pendingPasskeyGet;
+    final vault = state.vault;
+    if (req == null || vault == null) return const [];
+    final rpId = (req['rpId'] as String?) ?? '';
+    final allow = _allowCredentialIds((req['requestJson'] as String?) ?? '');
+    final matches = vault.entries.where((e) {
+      if (!e.isPasskey) return false;
+      if (rpId.isNotEmpty && e.passkeyRpId != rpId) return false;
+      if (allow.isNotEmpty && !allow.contains(e.passkeyCredentialId)) {
+        return false;
+      }
+      return true;
+    }).toList();
+    debugPrint(
+        'PassOnePasskey: passkeyGetCandidates rpId=$rpId allow=${allow.length} matches=${matches.length} (vaultPasskeys=${vault.entries.where((e) => e.isPasskey).length})');
+    return matches;
+  }
+
+  Set<String> _allowCredentialIds(String requestJson) {
+    try {
+      final obj = jsonDecode(requestJson) as Map<String, dynamic>;
+      final allow = obj['allowCredentials'];
+      if (allow is List) {
+        return allow
+            .whereType<Map>()
+            .map((m) => m['id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toSet();
+      }
+    } catch (_) {}
+    return const {};
+  }
+
+  /// Completes a passkey assertion requested while the vault was locked:
+  /// signs with the selected passkey natively and returns the assertion to
+  /// the system Credential Manager.
+  Future<void> confirmPasskeyGet(VaultEntry entry) async {
+    final req = state.pendingPasskeyGet;
+    if (req == null) return;
+    state = state.copyWith(pendingPasskeyGet: null);
+    try {
+      await _autofill.passkeyGetDone(
+        requestJson: req['requestJson'] as String,
+        clientDataHash: req['clientDataHash'] as String,
+        credentialId: entry.passkeyCredentialId!,
+        privateKeyPkcs8: entry.passkeyPrivateKey!,
+        rpId: entry.passkeyRpId ?? ((req['rpId'] as String?) ?? ''),
+        userHandle: entry.passkeyUserHandle,
+        publicKey: entry.passkeyPublicKey,
+      );
+    } catch (e) {
+      await _autofill.passkeyGetCancel();
+      rethrow;
+    }
+  }
+
+  /// Cancels a pending passkey assertion.
+  Future<void> cancelPasskeyGet() async {
+    state = state.copyWith(pendingPasskeyGet: null);
+    try {
+      await _autofill.passkeyGetCancel();
+    } catch (_) {}
   }
 
   /// Resets the "N passwords imported" notice shown on the vault screen.

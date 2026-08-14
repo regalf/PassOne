@@ -40,6 +40,10 @@ kotlin {
     }
 }
 
+dependencies {
+    implementation("androidx.credentials:credentials:1.6.0")
+}
+
 flutter {
     source = "../.."
 }
