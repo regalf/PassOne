@@ -16,6 +16,7 @@ Usage:
 """
 
 import argparse
+import datetime
 import os
 import re
 import shutil
@@ -207,14 +208,26 @@ def build_server():
 def build_linux(flutter):
     print("\n== Building Flutter Linux release ==")
     run([flutter, "gen-l10n"], cwd=APP)
-    run([flutter, "build", "linux", "--release"], cwd=APP)
+    # Embed version + build timestamp so the running app can identify which
+    # build it is (shown in Settings -> About).
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    defines = [
+        f"--dart-define=APP_VERSION={VERSION}",
+        f"--dart-define=APP_BUILD_TIME={stamp}",
+    ]
+    run([flutter, "build", "linux", "--release", *defines], cwd=APP)
 
 
 def build_apk(flutter, sdk):
     print("\n== Building Flutter Android APKs (debug + release) ==")
     env = {"ANDROID_HOME": str(sdk), "ANDROID_SDK_ROOT": str(sdk)} if sdk else None
-    run([flutter, "build", "apk", "--debug"], cwd=APP, env=env)
-    run([flutter, "build", "apk", "--release"], cwd=APP, env=env)
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    defines = [
+        f"--dart-define=APP_VERSION={VERSION}",
+        f"--dart-define=APP_BUILD_TIME={stamp}",
+    ]
+    run([flutter, "build", "apk", "--debug", *defines], cwd=APP, env=env)
+    run([flutter, "build", "apk", "--release", *defines], cwd=APP, env=env)
 
 
 def package_artifacts():

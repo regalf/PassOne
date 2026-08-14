@@ -13,6 +13,10 @@ class ApiException implements Exception {
 
   bool get isConflict => status == 409;
 
+  /// True for connectivity failures normalized by [_send] (status 0, code
+  /// 'network'). Excludes 'no_server', which means no server is configured.
+  bool get isNetworkError => status == 0 && code == 'network';
+
   @override
   String toString() => message;
 }
