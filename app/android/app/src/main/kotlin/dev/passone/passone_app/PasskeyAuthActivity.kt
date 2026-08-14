@@ -4,7 +4,6 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.service.credentials.CredentialProviderService
-import android.util.Log
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.credentials.PublicKeyCredential
@@ -30,26 +29,26 @@ class PasskeyAuthActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.d("PassOnePasskey", "auth: onCreate rpId=${intent.getStringExtra(EXTRA_RP_ID)}")
+        PLog.d("PassOnePasskey", "auth: onCreate rpId=${intent.getStringExtra(EXTRA_RP_ID)}")
         try {
             val prompt = BiometricPrompt(
                 this,
                 ContextCompat.getMainExecutor(this),
                 object : BiometricPrompt.AuthenticationCallback() {
                     override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                        Log.d("PassOnePasskey", "auth: biometric succeeded")
+                        PLog.d("PassOnePasskey", "auth: biometric succeeded")
                         signAndFinish()
                     }
 
                     override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                        Log.d("PassOnePasskey", "auth: biometric error $errorCode $errString")
+                        PLog.d("PassOnePasskey", "auth: biometric error $errorCode $errString")
                         setResult(Activity.RESULT_CANCELED)
                         finish()
                     }
 
                     override fun onAuthenticationFailed() {
                         // Wrong finger: the user can retry or cancel via the dialog.
-                        Log.d("PassOnePasskey", "auth: biometric failed (retry)")
+                        PLog.d("PassOnePasskey", "auth: biometric failed (retry)")
                     }
                 },
             )
@@ -61,7 +60,7 @@ class PasskeyAuthActivity : FragmentActivity() {
                     .build(),
             )
         } catch (e: Exception) {
-            Log.w("PassOnePasskey", "Biometric gate unavailable: ${e.message}")
+            PLog.w("PassOnePasskey", "Biometric gate unavailable: ${e.message}")
             setResult(Activity.RESULT_CANCELED)
             finish()
         }
@@ -81,8 +80,8 @@ class PasskeyAuthActivity : FragmentActivity() {
             val rpId = intent.getStringExtra(EXTRA_RP_ID)
                 ?: throw IllegalStateException("missing rpId")
             val userHandle = intent.getStringExtra(EXTRA_USER_HANDLE)
-            Log.d("PassOnePasskey", "auth: requestJson=$requestJson")
-            Log.d("PassOnePasskey", "auth: clientDataHash=${WebAuthn.b64url(clientDataHash)}")
+            PLog.d("PassOnePasskey", "auth: requestJson=$requestJson")
+            PLog.d("PassOnePasskey", "auth: clientDataHash=${WebAuthn.b64url(clientDataHash)}")
             val responseJson = WebAuthn.createAssertionResponse(
                 requestJson = requestJson,
                 clientDataHash = clientDataHash,
@@ -92,19 +91,19 @@ class PasskeyAuthActivity : FragmentActivity() {
                 userHandle = userHandle,
                 counter = 0,
             )
-            Log.d("PassOnePasskey", "auth: signed assertion ok")
-            Log.d("PassOnePasskey", "auth: responseJson=$responseJson")
+            PLog.d("PassOnePasskey", "auth: signed assertion ok")
+            PLog.d("PassOnePasskey", "auth: responseJson=$responseJson")
             if (publicKeySpki != null) {
-                Log.d(
+                PLog.d(
                     "PassOnePasskey",
                     "auth: storedSpkiHash=${WebAuthn.publicKeyHash(publicKeySpki)}",
                 )
-                Log.d(
+                PLog.d(
                     "PassOnePasskey",
                     "auth: selfVerifyWithStoredSpki=${WebAuthn.verifyAssertion(responseJson, clientDataHash, publicKeySpki)}",
                 )
             } else {
-                Log.w("PassOnePasskey", "auth: no stored SPKI in snapshot, skipping self-verify")
+                PLog.w("PassOnePasskey", "auth: no stored SPKI in snapshot, skipping self-verify")
             }
             val credential = PublicKeyCredential(responseJson)
             val result = android.credentials.GetCredentialResponse(
@@ -119,7 +118,7 @@ class PasskeyAuthActivity : FragmentActivity() {
             )
             setResult(Activity.RESULT_OK, data)
         } catch (e: Exception) {
-            Log.w("PassOnePasskey", "auth: sign failed: ${e.message}")
+            PLog.w("PassOnePasskey", "auth: sign failed: ${e.message}")
             setResult(Activity.RESULT_CANCELED)
         }
         finish()

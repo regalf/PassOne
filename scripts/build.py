@@ -2,8 +2,8 @@
 """PassOne build pipeline: environment check + release builds.
 
 Checks the toolchain and reports what is present and what is missing, then
-builds the Go server, the Flutter app (Linux + Android), and the Linux
-AppImage. Output artifacts land in server/dist/.
+builds the Go server, the Flutter app (Linux + Android debug and release),
+and the Linux AppImage. Output artifacts land in server/dist/.
 
 Usage:
   python3 scripts/build.py                 # full pipeline
@@ -211,8 +211,9 @@ def build_linux(flutter):
 
 
 def build_apk(flutter, sdk):
-    print("\n== Building Flutter Android release APK ==")
+    print("\n== Building Flutter Android APKs (debug + release) ==")
     env = {"ANDROID_HOME": str(sdk), "ANDROID_SDK_ROOT": str(sdk)} if sdk else None
+    run([flutter, "build", "apk", "--debug"], cwd=APP, env=env)
     run([flutter, "build", "apk", "--release"], cwd=APP, env=env)
 
 
@@ -231,6 +232,12 @@ def package_artifacts():
     if apk.exists():
         dst = DIST / f"passone-android-{VERSION}.apk"
         shutil.copyfile(apk, dst)
+        print(f"  {dst}")
+
+    apk_debug = APP / "build/app/outputs/flutter-apk/app-debug.apk"
+    if apk_debug.exists():
+        dst = DIST / f"passone-android-{VERSION}-debug.apk"
+        shutil.copyfile(apk_debug, dst)
         print(f"  {dst}")
 
 

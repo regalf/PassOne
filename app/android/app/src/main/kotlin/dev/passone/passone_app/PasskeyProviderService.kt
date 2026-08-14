@@ -7,7 +7,6 @@ import android.os.CancellationSignal
 import android.os.OutcomeReceiver
 import android.os.Build
 import android.util.Base64
-import android.util.Log
 import androidx.credentials.PublicKeyCredential
 import androidx.credentials.exceptions.ClearCredentialException
 import androidx.credentials.exceptions.CreateCredentialException
@@ -72,12 +71,12 @@ class PasskeyProviderService : CredentialProviderService() {
     ) {
         try {
             if (request.type != PublicKeyCredential.TYPE_PUBLIC_KEY_CREDENTIAL) {
-                Log.d(TAG, "create: type=${request.type} not supported")
+                PLog.d(TAG, "create: type=${request.type} not supported")
                 callback.onError(CreateCredentialNoCreateOptionException())
                 return
             }
             val requestJson = request.candidateQueryData.getString(KEY_REQUEST_JSON)
-            Log.d(TAG, "create: received requestJson=$requestJson")
+            PLog.d(TAG, "create: received requestJson=$requestJson")
             if (requestJson.isNullOrBlank()) {
                 callback.onError(CreateCredentialNoCreateOptionException())
                 return
@@ -105,7 +104,7 @@ class PasskeyProviderService : CredentialProviderService() {
             )
             callback.onResult(BeginCreateCredentialResponse(listOf(entry)))
         } catch (e: Exception) {
-            Log.w(TAG, "create: ${e.message}")
+            PLog.w(TAG, "create: ${e.message}")
             callback.onError(CreateCredentialUnknownException("Create failed"))
         }
     }
@@ -118,7 +117,7 @@ class PasskeyProviderService : CredentialProviderService() {
         try {
             val options = request.beginGetCredentialOptions
                 .filter { it.type == PublicKeyCredential.TYPE_PUBLIC_KEY_CREDENTIAL }
-            Log.d(TAG, "get: options=${options.size}")
+            PLog.d(TAG, "get: options=${options.size}")
             if (options.isEmpty()) {
                 callback.onResult(BeginGetCredentialResponse())
                 return
@@ -126,7 +125,7 @@ class PasskeyProviderService : CredentialProviderService() {
             val store = AutofillStore(this)
             val sessionKey = store.loadSessionKey()
             val snapshot = store.loadSnapshot()
-            Log.d(TAG, "get: locked=${sessionKey == null || snapshot == null}")
+            PLog.d(TAG, "get: locked=${sessionKey == null || snapshot == null}")
             if (sessionKey == null || snapshot == null) {
                 // Vault locked: offer a single unlock entry; the request stays
                 // stashed for the app to complete after the unlock.
@@ -160,17 +159,17 @@ class PasskeyProviderService : CredentialProviderService() {
                 return
             }
             val passkeys = decryptSnapshot(sessionKey, snapshot)
-            Log.d(TAG, "get: unlocked, passkeys=${passkeys.size}")
+            PLog.d(TAG, "get: unlocked, passkeys=${passkeys.size}")
             val entries = mutableListOf<PublicKeyCredentialEntry>()
             val seen = mutableSetOf<String>()
             for (option in options) {
                 val decoded = decodeOption(option) ?: continue
-                Log.d(TAG, "get: option rpId=${decoded.rpId}")
+                PLog.d(TAG, "get: option rpId=${decoded.rpId}")
                 for (pk in passkeys) {
                     if (!seen.add(pk.id)) continue
                     if (pk.rpId != decoded.rpId) continue
                     if (!allowListAllows(decoded.requestJson, pk.id)) continue
-                    Log.d(TAG, "get: matching passkey id=${pk.id} rpId=${pk.rpId}")
+                    PLog.d(TAG, "get: matching passkey id=${pk.id} rpId=${pk.rpId}")
                     val intent = Intent(this, PasskeyAuthActivity::class.java)
                         .setAction("passone.passkey.auth")
                         .putExtra(PasskeyAuthActivity.EXTRA_REQUEST_JSON, decoded.requestJson)
@@ -201,7 +200,7 @@ class PasskeyProviderService : CredentialProviderService() {
             }
             callback.onResult(BeginGetCredentialResponse(entries))
         } catch (e: Exception) {
-            Log.w(TAG, "get: ${e.message}")
+            PLog.w(TAG, "get: ${e.message}")
             callback.onError(GetCredentialUnknownException("Get failed"))
         }
     }
@@ -297,7 +296,7 @@ class PasskeyProviderService : CredentialProviderService() {
                 }
             }
         } catch (e: Exception) {
-            Log.w(TAG, "decrypt passkeys: ${e.message}")
+            PLog.w(TAG, "decrypt passkeys: ${e.message}")
             emptyList()
         }
     }

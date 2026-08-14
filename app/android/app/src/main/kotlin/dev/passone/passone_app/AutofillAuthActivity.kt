@@ -5,7 +5,6 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.service.autofill.Dataset
-import android.util.Log
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillManager
 import android.view.autofill.AutofillValue
@@ -59,7 +58,7 @@ class AutofillAuthActivity : FragmentActivity() {
                     .build(),
             )
         } catch (e: Exception) {
-            Log.w("PassOneAutofill", "Biometric gate unavailable: ${e.message}")
+            PLog.w("PassOneAutofill", "Biometric gate unavailable: ${e.message}")
             setResult(Activity.RESULT_CANCELED)
             finish()
         }

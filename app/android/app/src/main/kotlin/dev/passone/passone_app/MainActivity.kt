@@ -9,7 +9,6 @@ import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.provider.Settings
 import android.service.credentials.CredentialProviderService
-import android.util.Log
 import android.view.WindowManager
 import androidx.credentials.CreatePublicKeyCredentialResponse
 import androidx.credentials.PublicKeyCredential
@@ -56,7 +55,7 @@ class MainActivity : FlutterFragmentActivity() {
         autofillUnlockLaunch = intent.getBooleanExtra(EXTRA_AUTOFILL_UNLOCK, false)
         passkeyCreateLaunch = intent.getBooleanExtra(EXTRA_PASSKEY_CREATE, false)
         passkeyGetLaunch = intent.getBooleanExtra(EXTRA_PASSKEY_GET, false)
-        Log.d("PassOnePasskey", "readLaunchFlags: unlock=$autofillUnlockLaunch create=$passkeyCreateLaunch get=$passkeyGetLaunch")
+        PLog.d("PassOnePasskey", "readLaunchFlags: unlock=$autofillUnlockLaunch create=$passkeyCreateLaunch get=$passkeyGetLaunch")
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -167,7 +166,7 @@ class MainActivity : FlutterFragmentActivity() {
                     )
                     "takePendingPasskeyCreate" -> {
                         val raw = store.getPasskeyCreateRequest()
-                        Log.d("PassOnePasskey", "takePendingPasskeyCreate: present=${raw != null}")
+                        PLog.d("PassOnePasskey", "takePendingPasskeyCreate: present=${raw != null}")
                         if (raw == null) {
                             result.success(null)
                         } else {
@@ -189,7 +188,7 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                     "takePendingPasskeyGet" -> {
                         val requests = store.getPasskeyGetRequests()
-                        Log.d("PassOnePasskey", "takePendingPasskeyGet: count=${requests.size}")
+                        PLog.d("PassOnePasskey", "takePendingPasskeyGet: count=${requests.size}")
                         if (requests.isEmpty()) {
                             result.success(null)
                         } else {
@@ -219,7 +218,7 @@ class MainActivity : FlutterFragmentActivity() {
                                     username,
                                     userHandle ?: "",
                                 )
-                                Log.d("PassOnePasskey", "createGenerate: credentialId=${outcome.credentialIdB64.take(16)} rpId=$rpId")
+                                PLog.d("PassOnePasskey", "createGenerate: credentialId=${outcome.credentialIdB64.take(16)} rpId=$rpId")
                                 result.success(
                                     mapOf(
                                         "credentialId" to outcome.credentialIdB64,
@@ -237,7 +236,7 @@ class MainActivity : FlutterFragmentActivity() {
                     "passkeyCreateDone" -> {
                         store.clearPasskeyCreateRequest()
                         val responseJson = call.argument<String>("responseJson")
-                        Log.d("PassOnePasskey", "passkeyCreateDone: launch=$passkeyCreateLaunch response=${responseJson != null}")
+                        PLog.d("PassOnePasskey", "passkeyCreateDone: launch=$passkeyCreateLaunch response=${responseJson != null}")
                         if (passkeyCreateLaunch && responseJson != null) {
                             val data = Intent().putExtra(
                                 CredentialProviderService.EXTRA_CREATE_CREDENTIAL_RESPONSE,
@@ -263,7 +262,7 @@ class MainActivity : FlutterFragmentActivity() {
                     }
                     "passkeyGetDone" -> {
                         store.clearPasskeyGetRequest()
-                        Log.d("PassOnePasskey", "passkeyGetDone: launch=$passkeyGetLaunch")
+                        PLog.d("PassOnePasskey", "passkeyGetDone: launch=$passkeyGetLaunch")
                         try {
                             val requestJson = call.argument<String>("requestJson")
                             val clientDataHash = call.argument<String>("clientDataHash")
@@ -290,24 +289,24 @@ class MainActivity : FlutterFragmentActivity() {
                                     userHandle = userHandle,
                                     counter = 0,
                                 )
-                                Log.d("PassOnePasskey", "getDone: credentialId=$credentialId")
-                                Log.d("PassOnePasskey", "getDone: clientDataHash=$clientDataHash")
-                                Log.d("PassOnePasskey", "getDone: responseJson=$responseJson")
+                                PLog.d("PassOnePasskey", "getDone: credentialId=$credentialId")
+                                PLog.d("PassOnePasskey", "getDone: clientDataHash=$clientDataHash")
+                                PLog.d("PassOnePasskey", "getDone: responseJson=$responseJson")
                                 if (publicKey != null) {
                                     val spki = android.util.Base64.decode(
                                         publicKey,
                                         android.util.Base64.NO_WRAP,
                                     )
-                                    Log.d(
+                                    PLog.d(
                                         "PassOnePasskey",
                                         "getDone: storedSpkiHash=${WebAuthn.publicKeyHash(spki)}",
                                     )
-                                    Log.d(
+                                    PLog.d(
                                         "PassOnePasskey",
                                         "getDone: selfVerifyWithStoredSpki=${WebAuthn.verifyAssertion(responseJson, clientDataHashBytes, spki)}",
                                     )
                                 } else {
-                                    Log.w("PassOnePasskey", "getDone: no stored SPKI, skipping self-verify")
+                                    PLog.w("PassOnePasskey", "getDone: no stored SPKI, skipping self-verify")
                                 }
                                 if (passkeyGetLaunch) {
                                     val credential = PublicKeyCredential(responseJson)

@@ -14,7 +14,6 @@ import android.service.autofill.FillResponse
 import android.service.autofill.SaveCallback
 import android.service.autofill.SaveInfo
 import android.service.autofill.SaveRequest
-import android.util.Log
 import android.view.autofill.AutofillId
 import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
@@ -63,7 +62,7 @@ class PassAutofillService : AutofillService() {
         val store = AutofillStore(this)
         val sessionKey = store.loadSessionKey()
         val snapshot = store.loadSnapshot()
-        Log.d(TAG, "fill: id=${request.id} flags=${request.flags} sessionKey=${sessionKey != null} snapshot=${snapshot != null}")
+        PLog.d(TAG, "fill: id=${request.id} flags=${request.flags} sessionKey=${sessionKey != null} snapshot=${snapshot != null}")
         if (sessionKey == null || snapshot == null) {
             val structure = request.fillContexts.lastOrNull()?.structure
             val ids = structure?.let { collectFields(it) }
@@ -98,7 +97,7 @@ class PassAutofillService : AutofillService() {
             return
         }
         val entries = decryptSnapshot(sessionKey, snapshot)
-        Log.d(TAG, "fill: snapshot entries=${entries.size}")
+        PLog.d(TAG, "fill: snapshot entries=${entries.size}")
         if (entries.isEmpty()) {
             callback.onSuccess(null)
             return
@@ -108,7 +107,7 @@ class PassAutofillService : AutofillService() {
         val ids = structure?.let { collectFields(it) } ?: FieldIds()
         val usernameId = ids.username
         val passwordId = ids.password
-        Log.d(TAG, "fill: usernameId=${usernameId != null} passwordId=${passwordId != null} webDomain=${ids.webDomain}")
+        PLog.d(TAG, "fill: usernameId=${usernameId != null} passwordId=${passwordId != null} webDomain=${ids.webDomain}")
         // No fillable field in this structure: nothing we can fill or save.
         if (usernameId == null && passwordId == null) {
             callback.onSuccess(null)
@@ -131,7 +130,7 @@ class PassAutofillService : AutofillService() {
         val domain = resolveDomain(structure)
         val requireAuth = store.isRequireAuthEnabled()
         val matches = if (manual) entries else entries.filter { matchesEntry(it, domain) }
-        Log.d(TAG, "fill: domain=$domain manual=$manual requireAuth=$requireAuth matches=${matches.size}/${entries.size}")
+        PLog.d(TAG, "fill: domain=$domain manual=$manual requireAuth=$requireAuth matches=${matches.size}/${entries.size}")
         if (usernameId != null || passwordId != null) {
             for (entry in matches) {
                 val title = entry.name.ifBlank { domain ?: "PassOne" }
