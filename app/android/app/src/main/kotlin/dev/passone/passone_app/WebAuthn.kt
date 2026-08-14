@@ -188,6 +188,20 @@ object WebAuthn {
             .toString()
             .toByteArray(Charsets.UTF_8)
 
+    /**
+     * SHA-256 of the clientDataJSON we would return for a get request. Used as
+     * a fallback when the platform does not provide [KEY_CLIENT_DATA_HASH]
+     * (observed for native-app requests like Discord): the signature must cover
+     * the exact hash the relying party will recompute over our clientDataJSON.
+     */
+    fun computedClientDataHashForGet(requestJson: String): ByteArray {
+        val req = JSONObject(requestJson)
+        val challenge = req.getString("challenge")
+        val rpId = req.getString("rpId")
+        val origin = req.optString("origin").ifBlank { "https://$rpId" }
+        return sha256(clientDataJSON("webauthn.get", challenge, origin))
+    }
+
     // ---- create ----------------------------------------------------------
 
     data class CreateOutcome(

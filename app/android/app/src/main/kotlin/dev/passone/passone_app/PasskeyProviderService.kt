@@ -225,8 +225,23 @@ class PasskeyProviderService : CredentialProviderService() {
         return try {
             val data = option.candidateQueryData
             val requestJson = data.getString(KEY_REQUEST_JSON)
-            val clientDataHash = data.getByteArray(KEY_CLIENT_DATA_HASH) ?: ByteArray(32)
             if (requestJson.isNullOrBlank()) return null
+            var clientDataHash = data.getByteArray(KEY_CLIENT_DATA_HASH)
+            PLog.d(
+                TAG,
+                "decode: keys=${data.keySet()} hashProvided=${clientDataHash != null}",
+            )
+            if (clientDataHash == null || clientDataHash.all { it == 0.toByte() }) {
+                // Platform did not provide the client data hash (native-app
+                // flows like Discord). Compute it from the clientDataJSON we
+                // will return so the RP can verify the signature.
+                clientDataHash = WebAuthn.computedClientDataHashForGet(requestJson)
+                PLog.d(
+                    TAG,
+                    "decode: clientDataHash missing/zero, computed " +
+                        "hash=${WebAuthn.b64url(clientDataHash)}",
+                )
+            }
             val rpId = JSONObject(requestJson).getString("rpId")
             DecodedOption(requestJson, clientDataHash, rpId)
         } catch (e: Exception) {
