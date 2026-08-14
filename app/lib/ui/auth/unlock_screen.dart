@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -5,6 +7,7 @@ import '../../l10n/l10n.dart';
 import '../../state/biometrics.dart';
 import '../../state/providers.dart';
 import '../../state/session.dart';
+import '../common/cloud_status_icon.dart';
 
 /// Unlock screen: requires the master password to decrypt the local vault.
 class UnlockScreen extends ConsumerStatefulWidget {
@@ -29,6 +32,10 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
     // manually with the Lock button, in which case the user must explicitly
     // choose to unlock (password or fingerprint button).
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Re-check server reachability (after the frame, so the provider state
+      // isn't modified while the widget tree is building) — the cloud
+      // indicator and the offline warning reflect the current state.
+      unawaited(ref.read(sessionControllerProvider.notifier).refreshServerStatus());
       if (!mounted || _autoPrompted) return;
       final notifier = ref.read(sessionControllerProvider.notifier);
       final manualLock = notifier.consumeManualLock();
@@ -89,10 +96,69 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
     if (mounted) setState(() => _loading = false);
   }
 
+  bool _showOfflineWarning(SessionState session) =>
+      session.user != null &&
+      session.serverStatus == ServerStatus.offline &&
+      !session.settings.hideOfflineWarning;
+
+  Widget _offlineWarningCard(ThemeData theme, SessionState session) {
+    final l10n = context.l10n;
+    final onContainer = theme.colorScheme.onErrorContainer;
+    return Card(
+      color: theme.colorScheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.cloud_off, size: 20, color: onContainer),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n.offlineWarningTitle,
+                    style: theme.textTheme.titleSmall
+                        ?.copyWith(color: onContainer),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              l10n.offlineWarningBody,
+              style: theme.textTheme.bodySmall?.copyWith(color: onContainer),
+            ),
+            CheckboxListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: false,
+              activeColor: onContainer,
+              onChanged: (v) {
+                if (v == true) {
+                  unawaited(ref
+                      .read(sessionControllerProvider.notifier)
+                      .setHideOfflineWarning(true));
+                }
+              },
+              title: Text(
+                l10n.hideOfflineWarning,
+                style:
+                    theme.textTheme.bodySmall?.copyWith(color: onContainer),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final user = ref.watch(sessionControllerProvider).user;
+    final session = ref.watch(sessionControllerProvider);
+    final user = session.user;
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
@@ -109,8 +175,19 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
                     style: theme.textTheme.headlineSmall),
                 if (user != null) ...[
                   const SizedBox(height: 4),
-                  Text(user.username,
-                      style: theme.textTheme.bodyMedium),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(user.username,
+                          style: theme.textTheme.bodyMedium),
+                      const SizedBox(width: 8),
+                      CloudStatusIcon(status: session.serverStatus),
+                    ],
+                  ),
+                ],
+                if (_showOfflineWarning(session)) ...[
+                  const SizedBox(height: 16),
+                  _offlineWarningCard(theme, session),
                 ],
                 const SizedBox(height: 24),
                 TextField(

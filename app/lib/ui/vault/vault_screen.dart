@@ -7,7 +7,9 @@ import '../../l10n/app_localizations.dart';
 import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
 import '../../state/session.dart';
+import '../common/cloud_status_icon.dart';
 import '../settings/settings_screen.dart';
+import 'conflict_resolution_screen.dart';
 import 'entry_edit_screen.dart';
 import 'entry_list_screen.dart';
 import 'entry_tiles.dart';
@@ -65,6 +67,7 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
   final TextEditingController _search = TextEditingController();
   String _query = '';
   bool _handlingPending = false;
+  bool _syncing = false;
 
   @override
   void initState() {
@@ -73,6 +76,12 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
     // (unlock triggered by the Credential Manager): handle it on the next
     // frame, then rely on ref.listen for later launches.
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeHandlePending());
+    // Keep the cloud indicator fresh on the header.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(sessionControllerProvider.notifier).refreshServerStatus();
+      }
+    });
   }
 
   @override
@@ -122,6 +131,8 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
         children: [
           _header(l10n),
           _autofillImportsBanner(),
+          _pendingSyncBanner(),
+          _conflictsBanner(),
           _searchBar(l10n),
           Expanded(
             child: _query.isEmpty
@@ -143,7 +154,8 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
   }
 
   Widget _header(AppLocalizations l10n) {
-    final username = ref.watch(sessionControllerProvider).user?.username ?? '';
+    final session = ref.watch(sessionControllerProvider);
+    final username = session.user?.username ?? '';
     return SafeArea(
       bottom: false,
       child: Padding(
@@ -162,17 +174,50 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
                           .labelMedium
                           ?.copyWith(
                               color: Theme.of(context).colorScheme.primary)),
-                  Text(
-                    username.isEmpty ? l10n.appTitle : username,
-                    style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
-                        ?.copyWith(fontWeight: FontWeight.w600),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          username.isEmpty ? l10n.appTitle : username,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      CloudStatusIcon(status: session.serverStatus),
+                    ],
                   ),
+                  if (session.lastSyncedAt > 0) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.lastSyncedAt(
+                          _relativeTime(DateTime.now(), session.lastSyncedAt)),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant),
+                    ),
+                  ],
                 ],
               ),
+            ),
+            IconButton(
+              icon: _syncing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.sync),
+              tooltip: l10n.syncTooltip,
+              onPressed: _syncing ? null : _manualSync,
             ),
             IconButton(
               icon: const Icon(Icons.lock_outline),
@@ -224,6 +269,137 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
         ),
       ),
     );
+  }
+
+  Widget _pendingSyncBanner() {
+    final session = ref.watch(sessionControllerProvider);
+    if (!session.pendingSync) return const SizedBox.shrink();
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      child: Material(
+        color: colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+          child: Row(
+            children: [
+              Icon(Icons.cloud_off,
+                  size: 20, color: colorScheme.onErrorContainer),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.pendingSyncBanner,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: colorScheme.onErrorContainer),
+                ),
+              ),
+              _syncing
+                  ? const Padding(
+                      padding: EdgeInsets.all(10),
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : TextButton(
+                      onPressed: _retryPendingSync,
+                      child: Text(l10n.pendingSyncRetry),
+                    ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _conflictsBanner() {
+    final session = ref.watch(sessionControllerProvider);
+    final count = session.conflicts.length;
+    if (count == 0) return const SizedBox.shrink();
+    final l10n = context.l10n;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      child: Material(
+        color: colorScheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+          child: Row(
+            children: [
+              Icon(Icons.rule,
+                  size: 20, color: colorScheme.onTertiaryContainer),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  l10n.conflictsBanner(count),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: colorScheme.onTertiaryContainer),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const ConflictResolutionScreen(),
+                  ),
+                ),
+                child: Text(l10n.conflictsResolve),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _manualSync() async {
+    if (_syncing) return;
+    final l10n = context.l10n;
+    if (ref.read(sessionControllerProvider).conflicts.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.syncConflictsPending)));
+      return;
+    }
+    setState(() => _syncing = true);
+    try {
+      final ok =
+          await ref.read(sessionControllerProvider.notifier).syncAll();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(ok ? l10n.synced : l10n.syncFailed)));
+      }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
+  Future<void> _retryPendingSync() async {
+    setState(() => _syncing = true);
+    try {
+      final ok = await ref
+          .read(sessionControllerProvider.notifier)
+          .syncPendingChanges();
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.pendingSyncRetryFailed)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content:
+                    Text('${context.l10n.pendingSyncRetryFailed}: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
   }
 
   Widget _searchBar(AppLocalizations l10n) {
@@ -353,6 +529,17 @@ class _VaultHomeScreenState extends ConsumerState<VaultHomeScreen> {
 
   String _initial(String name) =>
       name.trim().isEmpty ? '?' : name.trim()[0].toUpperCase();
+
+  /// Compact relative time for the "last sync" header label.
+  String _relativeTime(DateTime now, int epochMs) {
+    final t = DateTime.fromMillisecondsSinceEpoch(epochMs);
+    final diff = now.difference(t);
+    if (diff.inSeconds < 60) return '1m';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
+    if (diff.inHours < 24) return '${diff.inHours}h';
+    if (diff.inDays < 7) return '${diff.inDays}d';
+    return '${t.day}/${t.month}/${t.year}';
+  }
 
   Future<void> _newEntry() async {
     ref.read(sessionControllerProvider.notifier).touch();

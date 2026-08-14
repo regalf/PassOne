@@ -4,12 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../l10n/l10n.dart';
+import '../../state/app_info.dart';
 import '../../state/biometrics.dart';
 import '../../state/providers.dart';
 import '../../state/session.dart';
 import '../../state/settings.dart';
 import '../vault/totp_test_screen.dart';
 import 'export.dart';
+import 'password_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -57,6 +59,30 @@ class SettingsScreen extends ConsumerWidget {
                     : session.settings.serverUrl),
                 trailing: const Icon(Icons.edit_outlined),
                 onTap: () => _editServerUrl(context, ref),
+              ),
+              ListTile(
+                leading: const Icon(Icons.cloud_off),
+                title: Text(l10n.offlineWarningSetting),
+                subtitle: Text(l10n.offlineWarningSettingSub),
+                trailing: Switch(
+                  value: !session.settings.hideOfflineWarning,
+                  onChanged: (v) =>
+                      notifier.setHideOfflineWarning(!v),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.schedule),
+                title: Text(l10n.cacheDuration),
+                subtitle: Text(l10n.cacheDurationSub),
+                trailing: DropdownButton<CacheExpiry>(
+                  value: session.settings.cacheExpiry,
+                  underline: const SizedBox.shrink(),
+                  onChanged: (v) => _changeCacheExpiry(context, ref, v),
+                  items: CacheExpiry.values
+                      .map((e) => DropdownMenuItem(
+                          value: e, child: Text(_cacheLabel(l10n, e))))
+                      .toList(),
+                ),
               ),
             ],
           ),
@@ -154,6 +180,21 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          _Section(
+            title: l10n.sectionAbout,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: Text(l10n.appVersion),
+                trailing: SelectableText(kAppVersion),
+              ),
+              ListTile(
+                leading: const Icon(Icons.build_outlined),
+                title: Text(l10n.appBuildTime),
+                trailing: SelectableText(kAppBuildTime),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -237,6 +278,93 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
     if (ok == true) notifier.setLockTimeout(LockTimeout.always);
+  }
+
+  String _cacheLabel(AppLocalizations l10n, CacheExpiry e) {
+    switch (e) {
+      case CacheExpiry.never:
+        return l10n.cacheLabelNever;
+      case CacheExpiry.twelveHours:
+        return l10n.cacheLabel12h;
+      case CacheExpiry.oneDay:
+        return l10n.cacheLabel1d;
+      case CacheExpiry.fiveDays:
+        return l10n.cacheLabel5d;
+      case CacheExpiry.fifteenDays:
+        return l10n.cacheLabel15d;
+      case CacheExpiry.thirtyDays:
+        return l10n.cacheLabel30d;
+      case CacheExpiry.ninetyDays:
+        return l10n.cacheLabel90d;
+      case CacheExpiry.oneHundredTwentyDays:
+        return l10n.cacheLabel120d;
+    }
+  }
+
+  /// Changes the cache duration. "Never" first shows a warning dialog (like
+  /// the "always" lock timeout); every change is gated by authentication.
+  Future<void> _changeCacheExpiry(
+      BuildContext context, WidgetRef ref, CacheExpiry? v) async {
+    if (v == null) return;
+    final notifier = ref.read(sessionControllerProvider.notifier);
+    if (v == CacheExpiry.never) {
+      final ok = await _confirmCacheNever(context);
+      if (ok != true || !context.mounted) return;
+    }
+    final authed = await _authForCacheChange(context, ref);
+    if (!authed) return;
+    await notifier.setCacheExpiry(v);
+  }
+
+  Future<bool?> _confirmCacheNever(BuildContext context) {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(ctx.l10n.cacheNeverTitle),
+        content: Text(ctx.l10n.cacheNeverWarning),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(ctx.l10n.cancel)),
+          FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(ctx.l10n.proceedAnyway)),
+        ],
+      ),
+    );
+  }
+
+  /// Requires biometrics (when enabled) or the master password before a
+  /// sensitive settings change. Returns true when the user authenticated.
+  Future<bool> _authForCacheChange(BuildContext context, WidgetRef ref) async {
+    final session = ref.read(sessionControllerProvider);
+    final notifier = ref.read(sessionControllerProvider.notifier);
+    if (session.settings.biometricsEnabled) {
+      final r = await notifier.authenticateWithBiometrics();
+      return r == BiometricReadResult.success;
+    }
+    final pw = await promptPassword(
+      context,
+      title: context.l10n.cacheChangeAuthTitle,
+      message: context.l10n.cacheChangeAuthMessage,
+      label: context.l10n.masterPassword,
+      confirmLabel: context.l10n.masterPassword,
+      requiredError: context.l10n.enterPassword,
+      mismatchError: context.l10n.passwordsDiffer,
+    );
+    if (pw == null) return false;
+    try {
+      await notifier.verifyMasterPassword(pw);
+      return true;
+    } on WrongPasswordException {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.invalidPassword)));
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _manageRecovery(BuildContext context, WidgetRef ref) async {

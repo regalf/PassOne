@@ -998,6 +998,126 @@ abstract class AppLocalizations {
   /// **'Choose which identity to use'**
   String get passkeyGetHint;
 
+  /// No description provided for @offlineWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Server not reachable'**
+  String get offlineWarningTitle;
+
+  /// No description provided for @offlineWarningBody.
+  ///
+  /// In en, this message translates to:
+  /// **'PassOne can\'t reach the server. The vault keeps working from the local cache, but nothing will be synchronized until the connection is restored.'**
+  String get offlineWarningBody;
+
+  /// No description provided for @hideOfflineWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Don\'t show this warning again'**
+  String get hideOfflineWarning;
+
+  /// No description provided for @offlineWarningSetting.
+  ///
+  /// In en, this message translates to:
+  /// **'Show offline warning'**
+  String get offlineWarningSetting;
+
+  /// No description provided for @offlineWarningSettingSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Show a warning on the unlock screen when the server can\'t be reached.'**
+  String get offlineWarningSettingSub;
+
+  /// No description provided for @cacheDuration.
+  ///
+  /// In en, this message translates to:
+  /// **'Local cache duration'**
+  String get cacheDuration;
+
+  /// No description provided for @cacheDurationSub.
+  ///
+  /// In en, this message translates to:
+  /// **'How long the local copy of your vault stays usable without syncing. Changing it requires authentication.'**
+  String get cacheDurationSub;
+
+  /// No description provided for @cacheLabelNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get cacheLabelNever;
+
+  /// No description provided for @cacheLabel12h.
+  ///
+  /// In en, this message translates to:
+  /// **'12 hours'**
+  String get cacheLabel12h;
+
+  /// No description provided for @cacheLabel1d.
+  ///
+  /// In en, this message translates to:
+  /// **'1 day'**
+  String get cacheLabel1d;
+
+  /// No description provided for @cacheLabel5d.
+  ///
+  /// In en, this message translates to:
+  /// **'5 days'**
+  String get cacheLabel5d;
+
+  /// No description provided for @cacheLabel15d.
+  ///
+  /// In en, this message translates to:
+  /// **'15 days'**
+  String get cacheLabel15d;
+
+  /// No description provided for @cacheLabel30d.
+  ///
+  /// In en, this message translates to:
+  /// **'30 days'**
+  String get cacheLabel30d;
+
+  /// No description provided for @cacheLabel90d.
+  ///
+  /// In en, this message translates to:
+  /// **'90 days'**
+  String get cacheLabel90d;
+
+  /// No description provided for @cacheLabel120d.
+  ///
+  /// In en, this message translates to:
+  /// **'120 days'**
+  String get cacheLabel120d;
+
+  /// No description provided for @cacheNeverTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Never expire the local cache?'**
+  String get cacheNeverTitle;
+
+  /// No description provided for @cacheNeverWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'The cached vault will never expire, even on this device. If the device is lost or stolen, an attacker can try to crack your master password offline with no time limit. Keeping a limited duration is recommended.'**
+  String get cacheNeverWarning;
+
+  /// No description provided for @cacheExpiredMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The local cache expired and was cleared. Sign in again to continue.'**
+  String get cacheExpiredMessage;
+
+  /// No description provided for @cacheChangeAuthTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Authentication required'**
+  String get cacheChangeAuthTitle;
+
+  /// No description provided for @cacheChangeAuthMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your master password to change the cache duration.'**
+  String get cacheChangeAuthMessage;
+
   /// No description provided for @editPasskeyTitle.
   ///
   /// In en, this message translates to:
@@ -1681,6 +1801,168 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unknown JSON format'**
   String get jsonFormatUnknown;
+
+  /// No description provided for @sectionAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get sectionAbout;
+
+  /// No description provided for @appVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get appVersion;
+
+  /// No description provided for @appBuildTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Build'**
+  String get appBuildTime;
+
+  /// No description provided for @pendingSyncBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsaved changes. The server is not reachable; they will sync automatically when the connection returns.'**
+  String get pendingSyncBanner;
+
+  /// No description provided for @pendingSyncRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get pendingSyncRetry;
+
+  /// No description provided for @pendingSyncRetryFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync failed, changes are still local'**
+  String get pendingSyncRetryFailed;
+
+  /// No description provided for @lastSyncedAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Last sync: {time}'**
+  String lastSyncedAt(Object time);
+
+  /// No description provided for @conflictsBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolve {count} sync {count, plural, =1{conflict} other{conflicts}}'**
+  String conflictsBanner(num count);
+
+  /// No description provided for @conflictsResolve.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolve'**
+  String get conflictsResolve;
+
+  /// No description provided for @conflictsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolve conflicts'**
+  String get conflictsTitle;
+
+  /// No description provided for @conflictsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Device and server have different versions of {count} {count, plural, =1{entry} other{entries}}: pick what to keep.'**
+  String conflictsIntro(num count);
+
+  /// No description provided for @conflictsProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{resolved}/{total} resolved'**
+  String conflictsProgress(Object resolved, Object total);
+
+  /// No description provided for @conflictsKindEdited.
+  ///
+  /// In en, this message translates to:
+  /// **'Edited on both sides'**
+  String get conflictsKindEdited;
+
+  /// No description provided for @conflictsKindDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate entry'**
+  String get conflictsKindDuplicate;
+
+  /// No description provided for @conflictsDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get conflictsDevice;
+
+  /// No description provided for @conflictsServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Server'**
+  String get conflictsServer;
+
+  /// No description provided for @conflictsUseLocal.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get conflictsUseLocal;
+
+  /// No description provided for @conflictsUseRemote.
+  ///
+  /// In en, this message translates to:
+  /// **'Server'**
+  String get conflictsUseRemote;
+
+  /// No description provided for @conflictsKeepBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'Both'**
+  String get conflictsKeepBoth;
+
+  /// No description provided for @conflictsResolveLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolve later'**
+  String get conflictsResolveLater;
+
+  /// No description provided for @conflictsApply.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get conflictsApply;
+
+  /// No description provided for @conflictsApplied.
+  ///
+  /// In en, this message translates to:
+  /// **'Conflicts resolved'**
+  String get conflictsApplied;
+
+  /// No description provided for @conflictsApplyFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not apply: try again'**
+  String get conflictsApplyFailed;
+
+  /// No description provided for @syncTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync now'**
+  String get syncTooltip;
+
+  /// No description provided for @synced.
+  ///
+  /// In en, this message translates to:
+  /// **'Synced'**
+  String get synced;
+
+  /// No description provided for @syncFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync failed, try again'**
+  String get syncFailed;
+
+  /// No description provided for @syncConflictsPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolve pending conflicts first'**
+  String get syncConflictsPending;
 }
 
 class _AppLocalizationsDelegate

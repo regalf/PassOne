@@ -495,6 +495,72 @@ class AppLocalizationsIt extends AppLocalizations {
   String get passkeyGetHint => 'Scegli quale identità usare';
 
   @override
+  String get offlineWarningTitle => 'Server non raggiungibile';
+
+  @override
+  String get offlineWarningBody =>
+      'PassOne non riesce a contattare il server. Il vault continua a funzionare dalla cache locale, ma nulla verrà sincronizzato finché la connessione non viene ripristinata.';
+
+  @override
+  String get hideOfflineWarning => 'Non mostrare più questo avviso';
+
+  @override
+  String get offlineWarningSetting => 'Mostra avviso offline';
+
+  @override
+  String get offlineWarningSettingSub =>
+      'Mostra un avviso nella schermata di sblocco quando il server non è raggiungibile.';
+
+  @override
+  String get cacheDuration => 'Durata cache locale';
+
+  @override
+  String get cacheDurationSub =>
+      'Per quanto tempo la copia locale del vault resta utilizzabile senza sincronizzare. Modificarla richiede l\'autenticazione.';
+
+  @override
+  String get cacheLabelNever => 'Mai';
+
+  @override
+  String get cacheLabel12h => '12 ore';
+
+  @override
+  String get cacheLabel1d => '1 giorno';
+
+  @override
+  String get cacheLabel5d => '5 giorni';
+
+  @override
+  String get cacheLabel15d => '15 giorni';
+
+  @override
+  String get cacheLabel30d => '30 giorni';
+
+  @override
+  String get cacheLabel90d => '90 giorni';
+
+  @override
+  String get cacheLabel120d => '120 giorni';
+
+  @override
+  String get cacheNeverTitle => 'Far scadere la cache locale mai?';
+
+  @override
+  String get cacheNeverWarning =>
+      'Il vault in cache non scadrà mai, nemmeno su questo dispositivo. Se il dispositivo viene perso o rubato, un attaccante può provare a forzare la password principale offline senza limiti di tempo. Consigliamo di mantenere una durata limitata.';
+
+  @override
+  String get cacheExpiredMessage =>
+      'La cache locale è scaduta ed è stata azzerata. Accedi di nuovo per continuare.';
+
+  @override
+  String get cacheChangeAuthTitle => 'Autenticazione richiesta';
+
+  @override
+  String get cacheChangeAuthMessage =>
+      'Inserisci la password principale per cambiare la durata della cache.';
+
+  @override
   String get editPasskeyTitle => 'Passkey';
 
   @override
@@ -862,4 +928,107 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get jsonFormatUnknown => 'Formato JSON sconosciuto';
+
+  @override
+  String get sectionAbout => 'Info';
+
+  @override
+  String get appVersion => 'Versione';
+
+  @override
+  String get appBuildTime => 'Build';
+
+  @override
+  String get pendingSyncBanner =>
+      'Modifiche non sincronizzate. Il server non è raggiungibile; verranno sincronizzate automaticamente appena torna la connessione.';
+
+  @override
+  String get pendingSyncRetry => 'Riprova';
+
+  @override
+  String get pendingSyncRetryFailed =>
+      'Sincronizzazione fallita, le modifiche restano locali';
+
+  @override
+  String lastSyncedAt(Object time) {
+    return 'Ultima sincronizzazione: $time';
+  }
+
+  @override
+  String conflictsBanner(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'conflitti di sincronizzazione',
+      one: 'conflitto di sincronizzazione',
+    );
+    return 'Risolvi $count $_temp0';
+  }
+
+  @override
+  String get conflictsResolve => 'Risolvi';
+
+  @override
+  String get conflictsTitle => 'Risolvi conflitti';
+
+  @override
+  String conflictsIntro(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'voci',
+      one: 'voce',
+    );
+    return 'Dispositivo e server hanno versioni diverse di $count $_temp0: scegli cosa tenere.';
+  }
+
+  @override
+  String conflictsProgress(Object resolved, Object total) {
+    return '$resolved/$total risolti';
+  }
+
+  @override
+  String get conflictsKindEdited => 'Modificata su entrambi';
+
+  @override
+  String get conflictsKindDuplicate => 'Voce duplicata';
+
+  @override
+  String get conflictsDevice => 'Dispositivo';
+
+  @override
+  String get conflictsServer => 'Server';
+
+  @override
+  String get conflictsUseLocal => 'Dispositivo';
+
+  @override
+  String get conflictsUseRemote => 'Server';
+
+  @override
+  String get conflictsKeepBoth => 'Entrambe';
+
+  @override
+  String get conflictsResolveLater => 'Risolvi più tardi';
+
+  @override
+  String get conflictsApply => 'Applica';
+
+  @override
+  String get conflictsApplied => 'Conflitti risolti';
+
+  @override
+  String get conflictsApplyFailed => 'Impossibile applicare: riprova';
+
+  @override
+  String get syncTooltip => 'Sincronizza ora';
+
+  @override
+  String get synced => 'Sincronizzato';
+
+  @override
+  String get syncFailed => 'Sincronizzazione fallita, riprova';
+
+  @override
+  String get syncConflictsPending => 'Risolvi prima i conflitti in sospeso';
 }

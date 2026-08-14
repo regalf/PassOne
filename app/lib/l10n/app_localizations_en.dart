@@ -493,6 +493,72 @@ class AppLocalizationsEn extends AppLocalizations {
   String get passkeyGetHint => 'Choose which identity to use';
 
   @override
+  String get offlineWarningTitle => 'Server not reachable';
+
+  @override
+  String get offlineWarningBody =>
+      'PassOne can\'t reach the server. The vault keeps working from the local cache, but nothing will be synchronized until the connection is restored.';
+
+  @override
+  String get hideOfflineWarning => 'Don\'t show this warning again';
+
+  @override
+  String get offlineWarningSetting => 'Show offline warning';
+
+  @override
+  String get offlineWarningSettingSub =>
+      'Show a warning on the unlock screen when the server can\'t be reached.';
+
+  @override
+  String get cacheDuration => 'Local cache duration';
+
+  @override
+  String get cacheDurationSub =>
+      'How long the local copy of your vault stays usable without syncing. Changing it requires authentication.';
+
+  @override
+  String get cacheLabelNever => 'Never';
+
+  @override
+  String get cacheLabel12h => '12 hours';
+
+  @override
+  String get cacheLabel1d => '1 day';
+
+  @override
+  String get cacheLabel5d => '5 days';
+
+  @override
+  String get cacheLabel15d => '15 days';
+
+  @override
+  String get cacheLabel30d => '30 days';
+
+  @override
+  String get cacheLabel90d => '90 days';
+
+  @override
+  String get cacheLabel120d => '120 days';
+
+  @override
+  String get cacheNeverTitle => 'Never expire the local cache?';
+
+  @override
+  String get cacheNeverWarning =>
+      'The cached vault will never expire, even on this device. If the device is lost or stolen, an attacker can try to crack your master password offline with no time limit. Keeping a limited duration is recommended.';
+
+  @override
+  String get cacheExpiredMessage =>
+      'The local cache expired and was cleared. Sign in again to continue.';
+
+  @override
+  String get cacheChangeAuthTitle => 'Authentication required';
+
+  @override
+  String get cacheChangeAuthMessage =>
+      'Enter your master password to change the cache duration.';
+
+  @override
   String get editPasskeyTitle => 'Passkey';
 
   @override
@@ -860,4 +926,106 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get jsonFormatUnknown => 'Unknown JSON format';
+
+  @override
+  String get sectionAbout => 'About';
+
+  @override
+  String get appVersion => 'Version';
+
+  @override
+  String get appBuildTime => 'Build';
+
+  @override
+  String get pendingSyncBanner =>
+      'Unsaved changes. The server is not reachable; they will sync automatically when the connection returns.';
+
+  @override
+  String get pendingSyncRetry => 'Retry';
+
+  @override
+  String get pendingSyncRetryFailed => 'Sync failed, changes are still local';
+
+  @override
+  String lastSyncedAt(Object time) {
+    return 'Last sync: $time';
+  }
+
+  @override
+  String conflictsBanner(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'conflicts',
+      one: 'conflict',
+    );
+    return 'Resolve $count sync $_temp0';
+  }
+
+  @override
+  String get conflictsResolve => 'Resolve';
+
+  @override
+  String get conflictsTitle => 'Resolve conflicts';
+
+  @override
+  String conflictsIntro(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'entries',
+      one: 'entry',
+    );
+    return 'Device and server have different versions of $count $_temp0: pick what to keep.';
+  }
+
+  @override
+  String conflictsProgress(Object resolved, Object total) {
+    return '$resolved/$total resolved';
+  }
+
+  @override
+  String get conflictsKindEdited => 'Edited on both sides';
+
+  @override
+  String get conflictsKindDuplicate => 'Duplicate entry';
+
+  @override
+  String get conflictsDevice => 'Device';
+
+  @override
+  String get conflictsServer => 'Server';
+
+  @override
+  String get conflictsUseLocal => 'Device';
+
+  @override
+  String get conflictsUseRemote => 'Server';
+
+  @override
+  String get conflictsKeepBoth => 'Both';
+
+  @override
+  String get conflictsResolveLater => 'Resolve later';
+
+  @override
+  String get conflictsApply => 'Apply';
+
+  @override
+  String get conflictsApplied => 'Conflicts resolved';
+
+  @override
+  String get conflictsApplyFailed => 'Could not apply: try again';
+
+  @override
+  String get syncTooltip => 'Sync now';
+
+  @override
+  String get synced => 'Synced';
+
+  @override
+  String get syncFailed => 'Sync failed, try again';
+
+  @override
+  String get syncConflictsPending => 'Resolve pending conflicts first';
 }

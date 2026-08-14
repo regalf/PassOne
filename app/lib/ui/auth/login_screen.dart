@@ -41,6 +41,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (s.settings.lastUsername != null) {
         _usernameController.text = s.settings.lastUsername!;
       }
+      if (s.cacheExpiredNotice) {
+        ref.read(sessionControllerProvider.notifier).clearCacheExpiredNotice();
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.cacheExpiredMessage)));
+      }
     });
   }
 
