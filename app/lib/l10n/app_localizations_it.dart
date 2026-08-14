@@ -495,6 +495,49 @@ class AppLocalizationsIt extends AppLocalizations {
   String get passkeyGetHint => 'Scegli quale identità usare';
 
   @override
+  String get editPasskeyTitle => 'Passkey';
+
+  @override
+  String get passkeyDetailsTitle => 'Dettagli';
+
+  @override
+  String get passkeyReadOnly =>
+      'Le passkey vengono create dal sito con cui le hai registrate e non possono essere modificate qui. Puoi solo rinominare o spostare questa voce.';
+
+  @override
+  String get relyingParty => 'Relying party';
+
+  @override
+  String get copyRpId => 'Copia ID relying party';
+
+  @override
+  String get rpIdCopied => 'ID relying party copiato';
+
+  @override
+  String get credentialIdLabel => 'ID credenziale';
+
+  @override
+  String get userHandle => 'User handle';
+
+  @override
+  String get copyUserHandle => 'Copia user handle';
+
+  @override
+  String get userHandleCopied => 'User handle copiato';
+
+  @override
+  String get algorithm => 'Algoritmo';
+
+  @override
+  String get signatureCounter => 'Contatore firme';
+
+  @override
+  String get createdLabel => 'Creata';
+
+  @override
+  String get updatedLabel => 'Aggiornata';
+
+  @override
   String get autofill => 'Compilazione automatica';
 
   @override

@@ -9,6 +9,7 @@ import '../../crypto/totp.dart';
 import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
 import 'entry_edit_screen.dart';
+import 'passkey_edit_screen.dart';
 import 'ssh_edit_screen.dart';
 
 enum EntryListKind { password, totp, ssh, passkey, all }
@@ -230,7 +231,7 @@ class _EntryListState extends ConsumerState<EntryList> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      onTap: () => _edit(e),
+      onTap: () => _editPasskey(e),
       trailing: PopupMenuButton<String>(
         onSelected: (v) => _passkeyAction(e, v),
         itemBuilder: (_) => [
@@ -286,6 +287,14 @@ class _EntryListState extends ConsumerState<EntryList> {
     ref.read(sessionControllerProvider.notifier).touch();
     final edited = await Navigator.of(context).push<VaultEntry>(
         MaterialPageRoute(builder: (_) => SshEditScreen(entry: e)));
+    if (edited == null || !mounted) return;
+    await _replace(edited);
+  }
+
+  Future<void> _editPasskey(VaultEntry e) async {
+    ref.read(sessionControllerProvider.notifier).touch();
+    final edited = await Navigator.of(context).push<VaultEntry>(
+        MaterialPageRoute(builder: (_) => PasskeyEditScreen(entry: e)));
     if (edited == null || !mounted) return;
     await _replace(edited);
   }

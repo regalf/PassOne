@@ -998,6 +998,90 @@ abstract class AppLocalizations {
   /// **'Choose which identity to use'**
   String get passkeyGetHint;
 
+  /// No description provided for @editPasskeyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Passkey'**
+  String get editPasskeyTitle;
+
+  /// No description provided for @passkeyDetailsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get passkeyDetailsTitle;
+
+  /// No description provided for @passkeyReadOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Passkeys are created from the site you registered them with and can\'t be edited here. You can only rename or move this entry.'**
+  String get passkeyReadOnly;
+
+  /// No description provided for @relyingParty.
+  ///
+  /// In en, this message translates to:
+  /// **'Relying party'**
+  String get relyingParty;
+
+  /// No description provided for @copyRpId.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy relying party ID'**
+  String get copyRpId;
+
+  /// No description provided for @rpIdCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Relying party ID copied'**
+  String get rpIdCopied;
+
+  /// No description provided for @credentialIdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Credential ID'**
+  String get credentialIdLabel;
+
+  /// No description provided for @userHandle.
+  ///
+  /// In en, this message translates to:
+  /// **'User handle'**
+  String get userHandle;
+
+  /// No description provided for @copyUserHandle.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy user handle'**
+  String get copyUserHandle;
+
+  /// No description provided for @userHandleCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'User handle copied'**
+  String get userHandleCopied;
+
+  /// No description provided for @algorithm.
+  ///
+  /// In en, this message translates to:
+  /// **'Algorithm'**
+  String get algorithm;
+
+  /// No description provided for @signatureCounter.
+  ///
+  /// In en, this message translates to:
+  /// **'Signature counter'**
+  String get signatureCounter;
+
+  /// No description provided for @createdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Created'**
+  String get createdLabel;
+
+  /// No description provided for @updatedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated'**
+  String get updatedLabel;
+
   /// No description provided for @autofill.
   ///
   /// In en, this message translates to:

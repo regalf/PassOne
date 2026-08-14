@@ -493,6 +493,49 @@ class AppLocalizationsEn extends AppLocalizations {
   String get passkeyGetHint => 'Choose which identity to use';
 
   @override
+  String get editPasskeyTitle => 'Passkey';
+
+  @override
+  String get passkeyDetailsTitle => 'Details';
+
+  @override
+  String get passkeyReadOnly =>
+      'Passkeys are created from the site you registered them with and can\'t be edited here. You can only rename or move this entry.';
+
+  @override
+  String get relyingParty => 'Relying party';
+
+  @override
+  String get copyRpId => 'Copy relying party ID';
+
+  @override
+  String get rpIdCopied => 'Relying party ID copied';
+
+  @override
+  String get credentialIdLabel => 'Credential ID';
+
+  @override
+  String get userHandle => 'User handle';
+
+  @override
+  String get copyUserHandle => 'Copy user handle';
+
+  @override
+  String get userHandleCopied => 'User handle copied';
+
+  @override
+  String get algorithm => 'Algorithm';
+
+  @override
+  String get signatureCounter => 'Signature counter';
+
+  @override
+  String get createdLabel => 'Created';
+
+  @override
+  String get updatedLabel => 'Updated';
+
+  @override
   String get autofill => 'Autofill';
 
   @override
