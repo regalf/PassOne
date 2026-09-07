@@ -13,6 +13,7 @@ import 'package:passone_app/state/biometrics.dart';
 import 'package:passone_app/state/providers.dart';
 import 'package:passone_app/state/session.dart';
 import 'package:passone_app/state/settings.dart';
+import 'package:passone_app/ui/auth/pairing_screen.dart';
 
 /// RFC 6238 TOTP computed INDEPENDENTLY of the app: it uses package:crypto
 /// (HMAC-SHA1 different from package:cryptography). It verifies that the code
@@ -197,6 +198,21 @@ class _UnreachableController extends _FakeController {
   }
 }
 
+/// Fake whose server demands a TLS pairing code exactly once: the first
+/// reachability check reports `pairing_required` (self-signed server), the
+/// second one succeeds, exactly like a freshly paired connection.
+class _PairingRequiredController extends _FakeController {
+  int reachabilityCalls = 0;
+  @override
+  Future<void> checkServerReachability(String url) async {
+    reachabilityCalls++;
+    if (reachabilityCalls == 1) {
+      throw ApiException(0, ApiException.codePairingRequired,
+          'Server uses a self-signed certificate.');
+    }
+  }
+}
+
 Widget _app(SessionController c) => ProviderScope(
       overrides: [
         sessionControllerProvider.overrideWith((ref) => c),
@@ -266,6 +282,29 @@ void main() {
     );
     expect(find.text('Sign in'), findsNothing,
         reason: 'the flow must not advance to the login step');
+  });
+  testWidgets('confirming the pairing code pops back to the login step '
+      'without a manual back navigation', (tester) async {
+    final c = _PairingRequiredController();
+    await tester.pumpWidget(_app(c));
+    await tester.pumpAndSettle();
+    await _fill(tester, 0, 'https://passone.test');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PairingScreen), findsOneWidget,
+        reason: 'a self-signed server must ask for the pairing code');
+    expect(find.text('Sign in'), findsNothing);
+
+    // Valid SPKI hex fingerprint (64 chars).
+    await _fill(tester, 0, 'ab' * 32);
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PairingScreen), findsNothing,
+        reason: 'a confirmed pairing must pop back to the login flow');
+    expect(find.text('Sign in'), findsOneWidget,
+        reason: 'the flow must land on the login step without going back');
   });
   testWidgets('logout returns to the login screen', (tester) async {
     final c = _FakeController();

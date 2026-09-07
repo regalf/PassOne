@@ -87,6 +87,9 @@ class _PairingScreenState extends ConsumerState<PairingScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(l10n.pairingSuccess)));
+        // Pop with `true` so the caller (login screen) re-runs the step that
+        // needed the trusted connection and lands on the login step.
+        Navigator.of(context).pop(true);
       }
       return true;
     } on ApiException catch (e) {
