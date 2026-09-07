@@ -8,11 +8,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"passone/internal/config"
 	"passone/internal/crypto"
 	"passone/internal/store"
+	"passone/internal/tlscert"
 )
 
 func newTestServer(t *testing.T) (*httptest.Server, *store.Store) {
@@ -285,6 +288,66 @@ func TestAdminUsers(t *testing.T) {
 	res.Body.Close()
 	if res.StatusCode != 401 {
 		t.Fatalf("admin without token = %d, expected 401", res.StatusCode)
+	}
+}
+
+func TestAdminPairing(t *testing.T) {
+	ts, _ := newTestServer(t)
+
+	// No token -> 401
+	code, out := get(t, ts.URL, "/api/v1/admin/pairing", "")
+	if code != 401 {
+		t.Fatalf("pairing without token = %d, expected 401", code)
+	}
+
+	// Default server (plain HTTP): no fingerprint, no QR.
+	code, out = get(t, ts.URL, "/api/v1/admin/pairing", "test-admin-token")
+	if code != 200 {
+		t.Fatalf("pairing = %d, body=%v", code, out)
+	}
+	if out["tls_mode"] != "none" {
+		t.Fatalf("tls_mode = %v, expected none", out["tls_mode"])
+	}
+	if out["fingerprint"] != nil || out["pair_url"] != nil || out["qr"] != nil {
+		t.Fatalf("pairing material must be empty on plain HTTP: %v", out)
+	}
+
+	// Self-signed server: fingerprint + scannable QR are served.
+	st, err := store.Open(filepath.Join(t.TempDir(), "test-signed.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	cert := filepath.Join(t.TempDir(), "tls-cert.pem")
+	key := filepath.Join(t.TempDir(), "tls-key.pem")
+	info, err := tlscert.Ensure(cert, key, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Default()
+	cfg.Addr = "127.0.0.1:0"
+	cfg.AdminToken = "test-admin-token"
+	cfg.TLSMode = config.TLSModeSelfSigned
+	cfg.TLSCert = cert
+	cfg.TLSKey = key
+	srv := New(cfg, st, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	signed := httptest.NewServer(srv.Routes())
+	defer signed.Close()
+
+	code, out = get(t, signed.URL, "/api/v1/admin/pairing", "test-admin-token")
+	if code != 200 {
+		t.Fatalf("pairing (selfsigned) = %d, body=%v", code, out)
+	}
+	fp, _ := out["fingerprint"].(string)
+	if fp != info.Fingerprint.String() {
+		t.Fatalf("fingerprint = %q, expected %s", fp, info.Fingerprint)
+	}
+	if want := "passone://pair/" + fp; out["pair_url"] != want {
+		t.Fatalf("pair_url = %v, expected %s", out["pair_url"], want)
+	}
+	qr, _ := out["qr"].(string)
+	if !strings.HasPrefix(qr, "data:image/png;base64,") {
+		t.Fatalf("qr missing data URL prefix: %v", out["qr"])
 	}
 }
 

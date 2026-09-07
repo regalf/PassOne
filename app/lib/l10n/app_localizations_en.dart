@@ -437,6 +437,65 @@ class AppLocalizationsEn extends AppLocalizations {
   String get close => 'Close';
 
   @override
+  String get pairingTitle => 'Pairing';
+
+  @override
+  String get pairingIntro =>
+      'The administrator requires an extra security step.\nTo continue with the login, scan the QR code shown by your PassOne server or type the pairing code.';
+
+  @override
+  String get pairingContact =>
+      'If you haven\'t received anything, contact your administrator.';
+
+  @override
+  String get pairingCodeLabel => 'Pairing code';
+
+  @override
+  String get pairingCodeHint => 'The code shown by your PassOne server';
+
+  @override
+  String get scanPairingQr => 'Scan the QR code';
+
+  @override
+  String get pairingContinue => 'Continue';
+
+  @override
+  String get invalidPairingCode =>
+      'The pairing code is not valid. Scan the QR code or copy it exactly as shown by your server.';
+
+  @override
+  String get invalidPairingCodeEnter =>
+      'Enter the pairing code or scan the QR.';
+
+  @override
+  String get pairingScanGuide =>
+      'Point at the QR code shown by your PassOne server';
+
+  @override
+  String get pairingDone => 'Server trusted';
+
+  @override
+  String get pairingSuccess =>
+      'The server is now trusted. The login will continue.';
+
+  @override
+  String get certChangedTitle => 'Server certificate changed';
+
+  @override
+  String get certChangedBody =>
+      'The certificate of your server no longer matches the one this device trusted. This happens after a \"rotate\", but before continuing, verify it with your administrator as it could also indicate tampering. Enter the new pairing code shown by your server.';
+
+  @override
+  String get rePair => 'Re-pair server';
+
+  @override
+  String get forgetServer => 'Forget server';
+
+  @override
+  String get forgetServerSub =>
+      'Remove the saved pairing and try the connection again.';
+
+  @override
   String get totpTestTitle => 'TOTP test';
 
   @override

@@ -9,15 +9,26 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// TLS mode values.
 const (
-	DefaultAddr      = "127.0.0.1:8321"
-	DefaultDBPath    = "passone.db"
+	TLSModeNone       = "none"
+	TLSModeCustom     = "custom"
+	TLSModeSelfSigned = "selfsigned"
+)
+
+const (
+	// DefaultAddr listens on all interfaces so clients on the network (e.g. the
+	// mobile app) can reach the server out of the box. Set `addr` to a specific
+	// host (or add a firewall rule) when the server must be reachable only from
+	// this machine.
+	DefaultAddr       = "0.0.0.0:8321"
+	DefaultDBPath     = "passone.db"
 	DefaultSessionTTL = 30 * 24 * time.Hour
 )
 
 // Config describes the PassOne server configuration.
 type Config struct {
-	// Addr is the address the server listens on (e.g. "127.0.0.1:8321").
+	// Addr is the address the server listens on (e.g. "0.0.0.0:8321").
 	Addr string `yaml:"addr"`
 	// DBPath is the path of the SQLite file.
 	DBPath string `yaml:"db_path"`
@@ -31,23 +42,30 @@ type Config struct {
 	// TLSCert/TLSKey enable direct TLS if both are set.
 	TLSCert string `yaml:"tls_cert"`
 	TLSKey  string `yaml:"tls_key"`
+	// TLSMode selects how the server exposes the API over TLS:
+	// "none"        — plain HTTP (default; a warning is logged at startup);
+	// "custom"      — use TLSCert/TLSKey, which must both be set;
+	// "selfsigned"  — the server generates/keeps its own certificate + key
+	//                 (see internal/tlscert) and serves only TLS.
+	TLSMode string `yaml:"tls_mode"`
 	// SessionTTL is the duration of a session.
 	SessionTTL time.Duration `yaml:"session_ttl"`
 	// MaxKDFMemoryMB/KDFIterationsLimit are sanity limits on the KDF parameters.
-	MaxKDFMemoryMB    int `yaml:"max_kdf_memory_mb"`
-	MaxKDFIterations  int `yaml:"max_kdf_iterations"`
+	MaxKDFMemoryMB   int `yaml:"max_kdf_memory_mb"`
+	MaxKDFIterations int `yaml:"max_kdf_iterations"`
 }
 
 // Default returns a configuration with default values.
 func Default() *Config {
 	return &Config{
-		Addr:               DefaultAddr,
-		DBPath:             DefaultDBPath,
-		AllowRegistration:  true,
-		EnableUI:           true,
-		SessionTTL:         DefaultSessionTTL,
-		MaxKDFMemoryMB:     2048,
-		MaxKDFIterations:   10000000,
+		Addr:              DefaultAddr,
+		DBPath:            DefaultDBPath,
+		AllowRegistration: true,
+		EnableUI:          true,
+		TLSMode:           "none",
+		SessionTTL:        DefaultSessionTTL,
+		MaxKDFMemoryMB:    2048,
+		MaxKDFIterations:  10000000,
 	}
 }
 
@@ -75,6 +93,14 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.MaxKDFIterations <= 0 {
 		cfg.MaxKDFIterations = 10000000
+	}
+	switch cfg.TLSMode {
+	case "", "none", "custom", "selfsigned":
+		if cfg.TLSMode == "" {
+			cfg.TLSMode = "none"
+		}
+	default:
+		cfg.TLSMode = "none"
 	}
 	// AdminToken: if empty it stays empty; the server will generate a random default.
 	return cfg, nil
@@ -110,5 +136,8 @@ func (c *Config) EnvOverride() {
 	}
 	if v := os.Getenv("PASSONE_TLS_KEY"); v != "" {
 		c.TLSKey = v
+	}
+	if v := os.Getenv("PASSONE_TLS_MODE"); v != "" {
+		c.TLSMode = v
 	}
 }

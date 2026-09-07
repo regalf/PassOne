@@ -1,10 +1,13 @@
 package api
 
 import (
+	"encoding/base64"
 	"net/http"
 	"strconv"
 	"strings"
 
+	"github.com/skip2/go-qrcode"
+	"passone/internal/config"
 	"passone/internal/store"
 )
 
@@ -15,6 +18,45 @@ type adminUserResponse struct {
 	VaultRevision int64  `json:"vault_revision"`
 	CreatedAt     string `json:"created_at"`
 	UpdatedAt     string `json:"updated_at"`
+}
+
+// pairingInfoResponse is the payload of GET /api/v1/admin/pairing. It lets an
+// admin display the pairing material clients need when the server presents a
+// self-signed certificate: the SPKI fingerprint and a scannable QR encoding
+// the passone://pair/<fingerprint> URI.
+type pairingInfoResponse struct {
+	TLSMode     string `json:"tls_mode"`
+	Fingerprint string `json:"fingerprint,omitempty"`
+	PairURL     string `json:"pair_url,omitempty"`
+	QRDataURL   string `json:"qr,omitempty"`
+}
+
+func (s *Server) handleAdminPairing(w http.ResponseWriter, r *http.Request) {
+	mode, fp := s.TLSPublic()
+	out := pairingInfoResponse{TLSMode: mode}
+	if mode == config.TLSModeSelfSigned && fp != "" {
+		uri := "passone://pair/" + fp
+		out.Fingerprint = fp
+		out.PairURL = uri
+		if qr, err := qrDataURL(uri); err == nil {
+			out.QRDataURL = qr
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// qrDataURL renders v as a QR code PNG and returns it as a data: URL, so the
+// admin web UI can embed it directly in an <img>.
+func qrDataURL(v string) (string, error) {
+	code, err := qrcode.New(v, qrcode.Medium)
+	if err != nil {
+		return "", err
+	}
+	png, err := code.PNG(256)
+	if err != nil {
+		return "", err
+	}
+	return "data:image/png;base64," + base64.StdEncoding.EncodeToString(png), nil
 }
 
 func (s *Server) handleAdminListUsers(w http.ResponseWriter, r *http.Request) {

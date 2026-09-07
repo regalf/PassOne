@@ -438,6 +438,65 @@ class AppLocalizationsIt extends AppLocalizations {
   String get close => 'Chiudi';
 
   @override
+  String get pairingTitle => 'Pairing';
+
+  @override
+  String get pairingIntro =>
+      'L\'amministratore richiede un passaggio di sicurezza in più.\nPer proseguire con il login, inquadra il codice QR mostrato dal tuo server PassOne oppure scrivi il codice di pairing.';
+
+  @override
+  String get pairingContact =>
+      'Se non hai ricevuto nulla, contatta l\'amministratore.';
+
+  @override
+  String get pairingCodeLabel => 'Codice di pairing';
+
+  @override
+  String get pairingCodeHint => 'Il codice mostrato dal tuo server PassOne';
+
+  @override
+  String get scanPairingQr => 'Inquadra il QR code';
+
+  @override
+  String get pairingContinue => 'Continua';
+
+  @override
+  String get invalidPairingCode =>
+      'Il codice di pairing non è valido. Inquadra il QR oppure copialo esattamente come lo mostra il server.';
+
+  @override
+  String get invalidPairingCodeEnter =>
+      'Inserisci il codice di pairing oppure inquadra il QR.';
+
+  @override
+  String get pairingScanGuide =>
+      'Inquadra il codice QR mostrato dal tuo server PassOne';
+
+  @override
+  String get pairingDone => 'Server attendibile';
+
+  @override
+  String get pairingSuccess =>
+      'Ora il server è attendibile. Il login prosegue.';
+
+  @override
+  String get certChangedTitle => 'Il certificato del server è cambiato';
+
+  @override
+  String get certChangedBody =>
+      'Il certificato del tuo server non corrisponde più a quello di cui questo dispositivo si fidava. Succede dopo un \"rotate\", ma prima di proseguire verificalo con l\'amministratore: potrebbe anche indicare un\'interferenza. Inserisci il nuovo codice di pairing mostrato dal server.';
+
+  @override
+  String get rePair => 'Ripara il server';
+
+  @override
+  String get forgetServer => 'Dimentica il server';
+
+  @override
+  String get forgetServerSub =>
+      'Rimuovi il pairing salvato e riprova la connessione.';
+
+  @override
   String get totpTestTitle => 'Test TOTP';
 
   @override

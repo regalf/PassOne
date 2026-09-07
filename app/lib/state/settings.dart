@@ -68,8 +68,13 @@ class AppSettings {
   /// suppressed (the user dismissed it with the "don't show again" check).
   final bool hideOfflineWarning;
 
-  /// How long the local cache stays usable without a server sync.
+/// How long the local cache stays usable without a server sync.
   final CacheExpiry cacheExpiry;
+
+  /// SPKI fingerprint (64 lowercase hex chars) of the server's TLS
+  /// certificate, pinned by the pairing flow. When set, the HTTPS certificate
+  /// must match it or the connection is refused as a possible MITM.
+  final String? serverPin;
 
   const AppSettings({
     this.serverUrl = '',
@@ -79,6 +84,7 @@ class AppSettings {
     this.languageCode,
     this.hideOfflineWarning = false,
     this.cacheExpiry = CacheExpiry.thirtyDays,
+    this.serverPin,
   });
 
   AppSettings copyWithServerUrl(String url) => AppSettings(
@@ -86,7 +92,8 @@ class AppSettings {
       lastUsername: lastUsername,
       lockTimeout: lockTimeout,
       biometricsEnabled: biometricsEnabled,
-      languageCode: languageCode);
+      languageCode: languageCode,
+      serverPin: serverPin);
   AppSettings copyWithLockTimeout(LockTimeout t) => AppSettings(
       serverUrl: serverUrl,
       lastUsername: lastUsername,
@@ -94,7 +101,8 @@ class AppSettings {
       biometricsEnabled: biometricsEnabled,
       languageCode: languageCode,
       hideOfflineWarning: hideOfflineWarning,
-      cacheExpiry: cacheExpiry);
+      cacheExpiry: cacheExpiry,
+      serverPin: serverPin);
   AppSettings copyWithLastUsername(String u) => AppSettings(
       serverUrl: serverUrl,
       lastUsername: u,
@@ -102,7 +110,8 @@ class AppSettings {
       biometricsEnabled: biometricsEnabled,
       languageCode: languageCode,
       hideOfflineWarning: hideOfflineWarning,
-      cacheExpiry: cacheExpiry);
+      cacheExpiry: cacheExpiry,
+      serverPin: serverPin);
   AppSettings copyWithBiometricsEnabled(bool v) => AppSettings(
       serverUrl: serverUrl,
       lastUsername: lastUsername,
@@ -110,7 +119,8 @@ class AppSettings {
       biometricsEnabled: v,
       languageCode: languageCode,
       hideOfflineWarning: hideOfflineWarning,
-      cacheExpiry: cacheExpiry);
+      cacheExpiry: cacheExpiry,
+      serverPin: serverPin);
   AppSettings copyWithLanguageCode(String? code) => AppSettings(
       serverUrl: serverUrl,
       lastUsername: lastUsername,
@@ -118,7 +128,8 @@ class AppSettings {
       biometricsEnabled: biometricsEnabled,
       languageCode: code,
       hideOfflineWarning: hideOfflineWarning,
-      cacheExpiry: cacheExpiry);
+      cacheExpiry: cacheExpiry,
+      serverPin: serverPin);
   AppSettings copyWithHideOfflineWarning(bool v) => AppSettings(
       serverUrl: serverUrl,
       lastUsername: lastUsername,
@@ -126,7 +137,8 @@ class AppSettings {
       biometricsEnabled: biometricsEnabled,
       languageCode: languageCode,
       hideOfflineWarning: v,
-      cacheExpiry: cacheExpiry);
+      cacheExpiry: cacheExpiry,
+      serverPin: serverPin);
   AppSettings copyWithCacheExpiry(CacheExpiry e) => AppSettings(
       serverUrl: serverUrl,
       lastUsername: lastUsername,
@@ -134,7 +146,17 @@ class AppSettings {
       biometricsEnabled: biometricsEnabled,
       languageCode: languageCode,
       hideOfflineWarning: hideOfflineWarning,
-      cacheExpiry: e);
+      cacheExpiry: e,
+      serverPin: serverPin);
+  AppSettings copyWithServerPin(String? pin) => AppSettings(
+      serverUrl: serverUrl,
+      lastUsername: lastUsername,
+      lockTimeout: lockTimeout,
+      biometricsEnabled: biometricsEnabled,
+      languageCode: languageCode,
+      hideOfflineWarning: hideOfflineWarning,
+      cacheExpiry: cacheExpiry,
+      serverPin: pin);
 }
 
 /// Encrypted vault cache + materials for offline unlock.
@@ -319,6 +341,7 @@ class SettingsRepository {
   static const _kLanguage = 'languageCode';
   static const _kHideOfflineWarning = 'hideOfflineWarning';
   static const _kCacheExpiry = 'cacheExpiryHours';
+  static const _kServerPin = 'serverPin';
 
   Future<AppSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -332,6 +355,7 @@ class SettingsRepository {
       hideOfflineWarning: prefs.getBool(_kHideOfflineWarning) ?? false,
       cacheExpiry:
           CacheExpiry.fromHours(prefs.getInt(_kCacheExpiry) ?? 720),
+      serverPin: prefs.getString(_kServerPin),
     );
   }
 
@@ -350,6 +374,11 @@ class SettingsRepository {
     }
     await prefs.setBool(_kHideOfflineWarning, s.hideOfflineWarning);
     await prefs.setInt(_kCacheExpiry, s.cacheExpiry.hours);
+    if (s.serverPin != null) {
+      await prefs.setString(_kServerPin, s.serverPin!);
+    } else {
+      await prefs.remove(_kServerPin);
+    }
   }
 
   Future<File> _cacheFile() async {

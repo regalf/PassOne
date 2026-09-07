@@ -1,7 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
+
+import 'tls.dart';
 
 /// API exception with a semantic code.
 class ApiException implements Exception {
@@ -11,10 +15,21 @@ class ApiException implements Exception {
 
   ApiException(this.status, this.code, this.message);
 
+  /// The server uses a self-signed (or otherwise untrusted) TLS certificate
+  /// and this device has no pairing pin for it yet: the user must scan/enter
+  /// the pairing code shown by the server.
+  static const codePairingRequired = 'pairing_required';
+
+  /// A pairing pin exists but the certificate presented by the server no
+  /// longer matches it (e.g. after `passone tls rotate`): re-pairing is
+  /// required, treating the change as a possible key compromise.
+  static const codeCertChanged = 'cert_changed';
+
   bool get isConflict => status == 409;
 
   /// True for connectivity failures normalized by [_send] (status 0, code
-  /// 'network'). Excludes 'no_server', which means no server is configured.
+  /// 'network'). Excludes 'no_server' (no server configured) and the TLS
+  /// pairing/pin codes, which need their own handling.
   bool get isNetworkError => status == 0 && code == 'network';
 
   @override
@@ -127,11 +142,50 @@ class VaultRemote {
 /// REST client for the PassOne server.
 class PassOneClient {
   final String baseUrl;
-  final http.Client _http;
+
+  /// SPKI fingerprint (64 lowercase hex chars) the server certificate must
+  /// match, or null when the connection is not pinned (plain HTTP, or HTTPS
+  /// with a public CA). Once set, any other certificate is rejected.
+  final String? serverPin;
+  http.Client _http;
   final Duration timeout;
 
-  PassOneClient({required this.baseUrl, http.Client? httpClient, this.timeout = const Duration(seconds: 30)})
-      : _http = httpClient ?? http.Client();
+  /// TLS dialog state filled by the certificate callback on handshake
+  /// failures, consumed by [_send] to surface [ApiException.codePairingRequired]
+  /// / [ApiException.codeCertChanged]. Cleared after each error mapping.
+  String? lastCertFailure;
+  String? lastCertFingerprint;
+
+  PassOneClient({
+    required this.baseUrl,
+    this.serverPin,
+    http.Client? httpClient,
+    this.timeout = const Duration(seconds: 30),
+  }) : _http = httpClient ?? http.Client() {
+    if (httpClient == null && baseUrl.startsWith('https://')) {
+      final io = HttpClient();
+      io.badCertificateCallback = (cert, host, port) => _verify(cert);
+      _http = IOClient(io);
+    }
+  }
+
+  /// Enforces the SPKI pin when the certificate fails normal chain
+  /// verification. A matching pin passes; otherwise the failure is recorded so
+  /// [_send] can route it to the pairing/change flows.
+  bool _verify(X509Certificate cert) {
+    final fp = spkiFingerprintHex(cert);
+    lastCertFingerprint = fp;
+    final pin = serverPin?.trim().toLowerCase();
+    if (fp != null && pin != null && pin.length == 64 && fp == pin) {
+      return true;
+    }
+    lastCertFailure = fp == null
+        ? null
+        : (pin == null || pin.isEmpty
+            ? ApiException.codePairingRequired
+            : ApiException.codeCertChanged);
+    return false;
+  }
 
   Uri _uri(String path) => Uri.parse('$baseUrl/api/v1$path');
 
@@ -155,6 +209,10 @@ class PassOneClient {
     throw ApiException(res.statusCode, code, message);
   }
 
+  /// Maps the outcome of a request. A TLS handshake refusal recorded by the
+  /// certificate callback is surfaced as a dedicated semantic error
+  /// ([ApiException.codePairingRequired]/[ApiException.codeCertChanged]) so
+  /// the UI can drive the pairing flow instead of showing "unreachable".
   Future<dynamic> _send(
       Future<http.Response> Function() request, String? token) async {
     try {
@@ -163,6 +221,16 @@ class PassOneClient {
     } on ApiException {
       rethrow;
     } catch (e) {
+      final failure = lastCertFailure;
+      lastCertFailure = null;
+      if (failure == ApiException.codePairingRequired) {
+        throw ApiException(0, ApiException.codePairingRequired,
+            'The server requires pairing before the login can continue.');
+      }
+      if (failure == ApiException.codeCertChanged) {
+        throw ApiException(0, ApiException.codeCertChanged,
+            'The server certificate no longer matches the one this device trusts.');
+      }
       throw ApiException(0, 'network', 'Unable to reach the server: $e');
     }
   }
@@ -340,11 +408,13 @@ class PassOneClient {
   }
 
   Future<void> healthCheck() async {
-    final res = await _http
-        .get(Uri.parse('$baseUrl/health'))
-        .timeout(timeout);
-    if (res.statusCode != 200) {
-      throw ApiException(res.statusCode, 'unreachable',
+    // Goes through [_send] so a TLS handshake refusal is surfaced with the
+    // pairing/pin-change codes, not as an opaque network error.
+    final data = await _send(
+        () => _http.get(Uri.parse('$baseUrl/health')), null);
+    final status = (data as Map<String, dynamic>?)?['status'];
+    if (status != 'ok') {
+      throw ApiException(0, 'unreachable',
           'The server is not responding as expected');
     }
   }

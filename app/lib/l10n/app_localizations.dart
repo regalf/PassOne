@@ -890,6 +890,108 @@ abstract class AppLocalizations {
   /// **'Close'**
   String get close;
 
+  /// No description provided for @pairingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pairing'**
+  String get pairingTitle;
+
+  /// No description provided for @pairingIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'The administrator requires an extra security step.\nTo continue with the login, scan the QR code shown by your PassOne server or type the pairing code.'**
+  String get pairingIntro;
+
+  /// No description provided for @pairingContact.
+  ///
+  /// In en, this message translates to:
+  /// **'If you haven\'t received anything, contact your administrator.'**
+  String get pairingContact;
+
+  /// No description provided for @pairingCodeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Pairing code'**
+  String get pairingCodeLabel;
+
+  /// No description provided for @pairingCodeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'The code shown by your PassOne server'**
+  String get pairingCodeHint;
+
+  /// No description provided for @scanPairingQr.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan the QR code'**
+  String get scanPairingQr;
+
+  /// No description provided for @pairingContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get pairingContinue;
+
+  /// No description provided for @invalidPairingCode.
+  ///
+  /// In en, this message translates to:
+  /// **'The pairing code is not valid. Scan the QR code or copy it exactly as shown by your server.'**
+  String get invalidPairingCode;
+
+  /// No description provided for @invalidPairingCodeEnter.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the pairing code or scan the QR.'**
+  String get invalidPairingCodeEnter;
+
+  /// No description provided for @pairingScanGuide.
+  ///
+  /// In en, this message translates to:
+  /// **'Point at the QR code shown by your PassOne server'**
+  String get pairingScanGuide;
+
+  /// No description provided for @pairingDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Server trusted'**
+  String get pairingDone;
+
+  /// No description provided for @pairingSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'The server is now trusted. The login will continue.'**
+  String get pairingSuccess;
+
+  /// No description provided for @certChangedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Server certificate changed'**
+  String get certChangedTitle;
+
+  /// No description provided for @certChangedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The certificate of your server no longer matches the one this device trusted. This happens after a \"rotate\", but before continuing, verify it with your administrator as it could also indicate tampering. Enter the new pairing code shown by your server.'**
+  String get certChangedBody;
+
+  /// No description provided for @rePair.
+  ///
+  /// In en, this message translates to:
+  /// **'Re-pair server'**
+  String get rePair;
+
+  /// No description provided for @forgetServer.
+  ///
+  /// In en, this message translates to:
+  /// **'Forget server'**
+  String get forgetServer;
+
+  /// No description provided for @forgetServerSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove the saved pairing and try the connection again.'**
+  String get forgetServerSub;
+
   /// No description provided for @totpTestTitle.
   ///
   /// In en, this message translates to:

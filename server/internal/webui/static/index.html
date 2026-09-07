@@ -72,6 +72,20 @@
       <tbody id="usersBody"></tbody>
     </table>
   </section>
+
+  <section class="card hidden" id="pairingCard">
+    <h2>Pairing client</h2>
+    <div class="row">
+      <button id="pairingBtn">Mostra fingerprint / QR</button>
+      <button class="secondary" id="pairingCopyBtn" style="display:none">Copia</button>
+    </div>
+    <p class="muted">Da mostrare ai client quando il server usa il certificato self-signed: possono inquadrare il QR oppure digitare la fingerprint per il pairing.</p>
+    <div id="pairingResult" class="hidden">
+      <div class="invite" id="pairingFp"></div>
+      <div class="muted" id="pairingMode" style="margin-top:6px"></div>
+      <div id="pairingQr" style="margin-top:12px"></div>
+    </div>
+  </section>
 </main>
 
 <div id="toast"></div>
@@ -80,9 +94,9 @@
 const state = { token: '' };
 const $ = (id) => document.getElementById(id);
 
-function setToken(t) { state.token = t; $('tokenInput').value = ''; $('loginCard').classList.add('hidden'); $('createCard').classList.remove('hidden'); $('listCard').classList.remove('hidden'); $('logoutBtn').style.display = ''; refresh(); }
+function setToken(t) { state.token = t; $('tokenInput').value = ''; $('loginCard').classList.add('hidden'); $('createCard').classList.remove('hidden'); $('listCard').classList.remove('hidden'); $('pairingCard').classList.remove('hidden'); $('logoutBtn').style.display = ''; refresh(); }
 $('loginBtn').onclick = () => { const t = $('tokenInput').value.trim(); if (!t) return; setToken(t); };
-$('logoutBtn').onclick = () => { state.token = ''; $('logoutBtn').style.display = 'none'; $('createCard').classList.add('hidden'); $('listCard').classList.remove('hidden'); $('listCard').classList.add('hidden'); $('loginCard').classList.remove('hidden'); };
+$('logoutBtn').onclick = () => { state.token = ''; $('logoutBtn').style.display = 'none'; $('createCard').classList.add('hidden'); $('listCard').classList.add('hidden'); $('pairingCard').classList.add('hidden'); $('loginCard').classList.remove('hidden'); };
 
 async function api(path, opts = {}) {
   const res = await fetch('/api/v1' + path, {
@@ -137,6 +151,33 @@ async function delUser(id) {
     refresh();
   } catch (e) { toast(e.message, true); }
 }
+
+$('pairingBtn').onclick = async () => {
+  try {
+    const data = await api('/admin/pairing');
+    $('pairingResult').classList.remove('hidden');
+    $('pairingQr').innerHTML = '';
+    if (data.tls_mode === 'selfsigned' && data.fingerprint) {
+      $('pairingFp').textContent = data.fingerprint;
+      $('pairingMode').textContent = data.pair_url || '';
+      $('pairingCopyBtn').style.display = '';
+      if (data.qr) {
+        $('pairingQr').innerHTML = `<img src="${data.qr}" alt="QR pairing" style="width:200px;height:200px;background:#fff;padding:8px;border-radius:8px">`;
+      }
+    } else {
+      $('pairingFp').textContent = 'TLS non in modalità self-signed: il pairing non è necessario.';
+      $('pairingMode').textContent = 'tls_mode: ' + data.tls_mode;
+      $('pairingCopyBtn').style.display = 'none';
+    }
+  } catch (e) { toast(e.message, true); }
+};
+
+$('pairingCopyBtn').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($('pairingFp').textContent);
+    toast('Fingerprint copiata');
+  } catch (_) { toast('Copia non disponibile: selezionala manualmente', true); }
+};
 
 let toastTimer;
 function toast(msg, isErr) {

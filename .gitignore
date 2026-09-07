@@ -35,3 +35,10 @@ server/integration.db-wal
 
 # Python build cache
 scripts/__pycache__/
+
+# opencode session files
+Session.json
+
+# Self-signed TLS material generated at runtime (secrets: never commit)
+server/tls-cert.pem
+server/tls-key.pem

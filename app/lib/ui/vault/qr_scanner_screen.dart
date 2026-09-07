@@ -6,8 +6,14 @@ import '../../l10n/l10n.dart';
 
 /// QR scanner for TOTP import: returns a [TotpUriData] when it detects a
 /// valid QR (otpauth:// or a bare Base32 key).
+///
+/// When [accept] is provided the scanner stops on the first barcode accepted
+/// by it and returns the raw scanned text instead (used by the pairing flow,
+/// which needs the raw content to extract the fingerprint).
 class QrScannerScreen extends StatefulWidget {
-  const QrScannerScreen({super.key});
+  const QrScannerScreen({super.key, this.accept});
+
+  final bool Function(String raw)? accept;
 
   @override
   State<QrScannerScreen> createState() => _QrScannerScreenState();
@@ -28,6 +34,14 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     for (final barcode in capture.barcodes) {
       final raw = barcode.rawValue;
       if (raw == null) continue;
+      if (widget.accept != null) {
+        if (widget.accept!(raw)) {
+          _handled = true;
+          Navigator.of(context).pop(raw);
+          return;
+        }
+        continue;
+      }
       final data = parseTotp(raw);
       if (data == null) continue;
       _handled = true;

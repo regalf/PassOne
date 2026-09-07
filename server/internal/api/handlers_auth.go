@@ -225,11 +225,23 @@ func (s *Server) handlePrelogin(w http.ResponseWriter, r *http.Request) {
 		kdf = kdfInput{Algorithm: u.KDFAlgorithm, Params: u.KDFParams}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"username": username,
-		"status":   status,
-		"salt_b64": crypto.EncodeBase64(salt),
-		"kdf":      kdf,
+		"username":    username,
+		"status":      status,
+		"salt_b64":    crypto.EncodeBase64(salt),
+		"kdf":         kdf,
+		"server_tls":  s.tlsInfo(),
 	})
+}
+
+// tlsInfo returns the transport mode the server is exposed on, plus the
+// SPKI fingerprint when running self-signed TLS (for client pairing).
+func (s *Server) tlsInfo() map[string]any {
+	mode, fp := s.TLSPublic()
+	m := map[string]any{"mode": mode}
+	if fp != "" {
+		m["fingerprint_spki"] = fp
+	}
+	return m
 }
 
 type loginRequest struct {

@@ -8,6 +8,7 @@ import '../../api/client.dart';
 import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
 import '../../state/session.dart';
+import 'pairing_screen.dart';
 import 'recover_screen.dart';
 import 'register_screen.dart';
 
@@ -74,6 +75,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() => _error = context.l10n.invalidServerUrl);
       return;
     }
+    await _probeServer(server);
+  }
+
+  /// Reachability check + switch to the login step. On a TLS pairing/change
+  /// signal it opens [PairingScreen] and re-tries the probe after a successful
+  /// pairing, so the user lands on the login step only once the server is
+  /// actually usable.
+  Future<void> _probeServer(String server) async {
     setState(() {
       _loading = true;
       _error = null;
@@ -85,6 +94,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await ref.read(sessionControllerProvider.notifier).setServerUrl(server);
       if (mounted) setState(() => _step = 1);
     } on ApiException catch (e) {
+      if (e.code == ApiException.codePairingRequired ||
+          e.code == ApiException.codeCertChanged) {
+        if (mounted) setState(() => _loading = false);
+        final paired = await _openPairing(server,
+            mismatch: e.code == ApiException.codeCertChanged);
+        if (paired) {
+          await _probeServer(server);
+          return;
+        }
+        if (mounted) setState(() => _error = e.message);
+        return;
+      }
       if (mounted) setState(() => _error = e.message);
     } on http.ClientException {
       if (mounted) setState(() => _error = context.l10n.serverUnreachable);
@@ -97,6 +118,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  /// Pushes the pairing screen and returns whether the pairing was saved.
+  Future<bool> _openPairing(String server, {required bool mismatch}) async {
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PairingScreen(serverUrl: server, mismatch: mismatch),
+      ),
+    );
+    return ok ?? false;
+  }
+
   Future<void> _login() async {
     final server = _serverController.text.trim();
     final username = _usernameController.text.trim();
@@ -105,6 +136,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() => _error = context.l10n.fillAllFields);
       return;
     }
+    await _doLogin(server, username, password);
+  }
+
+  /// Performs the login; on a TLS pairing/change signal it opens
+  /// [PairingScreen] and retries once the device is paired.
+  Future<void> _doLogin(String server, String username, String password) async {
     setState(() {
       _loading = true;
       _error = null;
@@ -119,6 +156,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } on NeedsSetupException {
       setState(() => _showSetupInvite = username);
     } on ApiException catch (e) {
+      if (e.code == ApiException.codePairingRequired ||
+          e.code == ApiException.codeCertChanged) {
+        if (mounted) setState(() => _loading = false);
+        final paired = await _openPairing(server,
+            mismatch: e.code == ApiException.codeCertChanged);
+        if (paired) {
+          await _doLogin(server, username, password);
+          return;
+        }
+        if (mounted) setState(() => _error = e.message);
+        return;
+      }
       if (mounted) setState(() => _error = e.message);
     } on WrongPasswordException {
       if (mounted) setState(() => _error = context.l10n.invalidCredentials);

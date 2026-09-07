@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../api/client.dart';
+import '../api/tls.dart';
 import '../crypto/kdf.dart';
 import '../crypto/models.dart';
 import '../crypto/vault_crypto.dart';
@@ -160,7 +161,8 @@ class SessionController extends StateNotifier<SessionState> {
     var settings = await _repo.load();
     final cache = await _repo.loadCache();
     if (settings.serverUrl.isNotEmpty) {
-      _client = PassOneClient(baseUrl: settings.serverUrl);
+      _client = PassOneClient(
+          baseUrl: settings.serverUrl, serverPin: settings.serverPin);
     }
     var activeCache = cache;
     var expired = false;
@@ -292,18 +294,48 @@ class SessionController extends StateNotifier<SessionState> {
   Future<BiometricReadResult> authenticateWithBiometrics() =>
       _biometrics.authenticate();
 
-  /// Sets/updates the server URL and the HTTP client.
+  /// Sets/updates the server URL and the HTTP client. The TLS pin is only kept
+  /// when the address did not change: pointing at a different server must not
+  /// silently reuse (and thereby trust) a pin created for another server.
   Future<void> setServerUrl(String url) async {
     final base = url.trim().replaceAll(RegExp(r'/+$'), '');
-    final settings = state.settings.copyWithServerUrl(base);
+    final changed = base != state.settings.serverUrl;
+    final pin = changed ? null : state.settings.serverPin;
+    final settings = state.settings.copyWithServerPin(pin).copyWithServerUrl(base);
     await _repo.save(settings);
-    _client = PassOneClient(baseUrl: base);
+    _client = PassOneClient(baseUrl: base, serverPin: pin);
+    state = state.copyWith(settings: settings);
+  }
+
+  /// Pairs this device with the server at [url], pinning the SPKI fingerprint
+  /// from the pairing [code] (typed or scanned from the server's QR). Throws
+  /// [ApiException] with code 'invalid_pairing_code' when the code is invalid.
+  Future<void> pair({required String url, required String code}) async {
+    final fp = normalizePairingCode(code);
+    if (fp == null) {
+      throw ApiException(
+          0, 'invalid_pairing_code', 'Invalid pairing code.');
+    }
+    await setServerUrl(url);
+    final settings = state.settings.copyWithServerPin(fp);
+    await _repo.save(settings);
+    _client = PassOneClient(baseUrl: settings.serverUrl, serverPin: fp);
+    state = state.copyWith(settings: settings);
+  }
+
+  /// Removes the TLS pin: the connection goes back to the unverified state and
+  /// the app will ask for a new pairing code on the next server contact.
+  Future<void> clearPin() async {
+    final settings = state.settings.copyWithServerPin(null);
+    await _repo.save(settings);
+    _client = PassOneClient(baseUrl: settings.serverUrl);
     state = state.copyWith(settings: settings);
   }
 
   /// Checks that the server responds on GET /health. Overridable in tests.
-  Future<void> checkServerReachability(String url) =>
-      PassOneClient(baseUrl: url).healthCheck();
+  Future<void> checkServerReachability(String url) => PassOneClient(
+          baseUrl: url, serverPin: state.settings.serverPin)
+      .healthCheck();
 
   Future<void> setLockTimeout(LockTimeout timeout) async {
     final settings = state.settings.copyWithLockTimeout(timeout);

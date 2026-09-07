@@ -17,6 +17,7 @@ import (
 	"passone/internal/config"
 	"passone/internal/crypto"
 	"passone/internal/store"
+	"passone/internal/tlscert"
 	"passone/internal/webui"
 )
 
@@ -32,6 +33,8 @@ func main() {
 	switch cmd {
 	case "serve":
 		err = cmdServe(log, args)
+	case "tls":
+		err = cmdTLS(log, args)
 	case "user":
 		err = cmdUser(log, args)
 	case "config":
@@ -51,11 +54,19 @@ func main() {
 	}
 }
 
+const (
+	defaultTLSCert = "tls-cert.pem"
+	defaultTLSKey  = "tls-key.pem"
+)
+
 func usage() {
 	fmt.Print(`PassOne - password manager self-hosted
 
 Uso:
   passone serve [--config config.yaml] [--no-ui] [--addr :8321]
+  passone tls gen [--force]
+  passone tls fingerprint
+  passone tls rotate
   passone user create <username>
   passone user list
   passone user disable <username>
@@ -93,16 +104,36 @@ func cmdServe(log *slog.Logger, args []string) error {
 	}
 	defer st.Close()
 
+	if cfg.TLSMode == config.TLSModeSelfSigned {
+		info, err := tlscert.Ensure(certPath(cfg), keyPath(cfg), time.Now())
+		if err != nil {
+			return err
+		}
+		logConfigTLS(log, cfg, info)
+	} else if cfg.TLSMode == config.TLSModeCustom && (cfg.TLSCert == "" || cfg.TLSKey == "") {
+		return errors.New("tls_mode \"custom\" requires both tls_cert and tls_key")
+	}
+
 	srv := api.New(cfg, st, log)
 	handler := srv.Routes()
 	if cfg.EnableUI {
 		handler = webui.WithAdminUI(handler, srv.AdminToken())
 	}
 
-	if cfg.TLSCert == "" || cfg.TLSKey == "" {
-		log.Warn("server running WITHOUT TLS/HTTPS — the transport is not encrypted; end-to-end encryption stays active, but using an HTTPS reverse proxy (e.g. Caddy) is recommended.")
-	} else {
-		log.Info("TLS enabled", "cert", cfg.TLSCert)
+	usingTLS := false
+	switch cfg.TLSMode {
+	case config.TLSModeSelfSigned:
+		usingTLS = true
+	case config.TLSModeCustom:
+		usingTLS = true
+	case config.TLSModeNone:
+		usingTLS = cfg.TLSCert != "" && cfg.TLSKey != ""
+		if !usingTLS {
+			log.Warn("server running WITHOUT TLS/HTTPS — the transport is not encrypted; end-to-end encryption stays active, but consider tls_mode \"selfsigned\" or an HTTPS reverse proxy (e.g. Caddy).")
+		}
+	}
+	if usingTLS && cfg.TLSMode != config.TLSModeSelfSigned {
+		log.Info("TLS enabled", "cert", cfg.TLSCert, "mode", cfg.TLSMode)
 	}
 	if cfg.AdminToken == "" {
 		// Log only a prefix: the full token is a secret and must not end up
@@ -125,9 +156,9 @@ func cmdServe(log *slog.Logger, args []string) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("PassOne server listening", "addr", cfg.Addr, "ui", cfg.EnableUI)
-		if cfg.TLSCert != "" && cfg.TLSKey != "" {
-			errCh <- httpServer.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey)
+		log.Info("PassOne server listening", "addr", cfg.Addr, "ui", cfg.EnableUI, "tls", usingTLS)
+		if usingTLS {
+			errCh <- httpServer.ListenAndServeTLS(certPath(cfg), keyPath(cfg))
 		} else {
 			errCh <- httpServer.ListenAndServe()
 		}
@@ -145,6 +176,89 @@ func cmdServe(log *slog.Logger, args []string) error {
 		defer cancel()
 		return httpServer.Shutdown(ctx)
 	}
+}
+
+// ---------------- tls ----------------
+
+func cmdTLS(log *slog.Logger, args []string) error {
+	if len(args) < 1 {
+		return errors.New("usage: passone tls gen|fingerprint|rotate")
+	}
+	sub := args[0]
+
+	cfg, err := loadConfigForCLI()
+	if err != nil {
+		return err
+	}
+	if cfg.TLSMode != config.TLSModeSelfSigned {
+		return fmt.Errorf("tls_mode is %q, not %q: the tls commands operate on the self-signed certificate", cfg.TLSMode, config.TLSModeSelfSigned)
+	}
+	cert, key := certPath(cfg), keyPath(cfg)
+	now := time.Now()
+
+	switch sub {
+	case "gen":
+		force := false
+		fs := flag.NewFlagSet("tls gen", flag.ContinueOnError)
+		fs.BoolVar(&force, "force", false, "regenerate the key + certificate")
+		_ = fs.Parse(args[1:])
+		var info *tlscert.Info
+		if force {
+			info, err = tlscert.Rotate(cert, key, now)
+		} else {
+			info, err = tlscert.Ensure(cert, key, now)
+		}
+		if err != nil {
+			return err
+		}
+		printTLSInfo(info, cert, key, log)
+	case "fingerprint":
+		info, err := tlscert.Inform(cert)
+		if err != nil {
+			return err
+		}
+		printTLSInfo(info, cert, key, log)
+	case "rotate":
+		info, err := tlscert.Rotate(cert, key, now)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("key rotated: the SPKI fingerprint changed, re-pair every client device.\n")
+		printTLSInfo(info, cert, key, log)
+	default:
+		return fmt.Errorf("unknown subcommand: %s", sub)
+	}
+	return nil
+}
+
+func printTLSInfo(info *tlscert.Info, cert, key string, log *slog.Logger) {
+	fmt.Printf("certificate      %s\nprivate key      %s\n", cert, key)
+	fmt.Printf("fingerprint (SPKI SHA-256)\n  %s\n", info.Fingerprint)
+	fmt.Printf("public key       %s\nvalid from       %s\nvalid until      %s\n",
+		info.PublicKey, info.NotBefore.Format(time.RFC3339), info.NotAfter.Format(time.RFC3339))
+}
+
+func certPath(cfg *config.Config) string {
+	if cfg.TLSCert != "" {
+		return cfg.TLSCert
+	}
+	return defaultTLSCert
+}
+
+func keyPath(cfg *config.Config) string {
+	if cfg.TLSKey != "" {
+		return cfg.TLSKey
+	}
+	return defaultTLSKey
+}
+
+func logConfigTLS(log *slog.Logger, cfg *config.Config, info *tlscert.Info) {
+	log.Info("self-signed TLS certificate ready",
+		"cert", certPath(cfg),
+		"key", keyPath(cfg),
+		"fingerprint_spki", info.Fingerprint,
+		"valid_until", info.NotAfter.Format(time.RFC3339))
+	log.Warn("backup the certificate and private key (like the recovery key): losing the private key forces re-pairing of every client device")
 }
 
 // ---------------- user ----------------
@@ -276,33 +390,33 @@ func cmdBackup(log *slog.Logger, args []string) error {
 		return err
 	}
 	type backupUser struct {
-		Username             string    `json:"username"`
-		Status               string    `json:"status"`
-		SaltB64              string    `json:"salt_b64,omitempty"`
-		KDFAlgorithm         string    `json:"kdf_algorithm"`
-		KDFParams            any       `json:"kdf_params"`
-		AuthHashB64          string    `json:"auth_hash_b64,omitempty"`
-		RecoveryHashB64      string    `json:"recovery_hash_b64,omitempty"`
-		VaultKeyWrappedB64   string    `json:"vault_key_wrapped_b64,omitempty"`
-		VaultKeyWrappedRecB64 string   `json:"vault_key_wrapped_recov_b64,omitempty"`
-		VaultBlobB64         string    `json:"vault_blob_b64,omitempty"`
-		VaultNonceB64        string    `json:"vault_nonce_b64,omitempty"`
-		VaultRevision        int64     `json:"vault_revision"`
-		UpdatedAt            string    `json:"updated_at"`
+		Username              string `json:"username"`
+		Status                string `json:"status"`
+		SaltB64               string `json:"salt_b64,omitempty"`
+		KDFAlgorithm          string `json:"kdf_algorithm"`
+		KDFParams             any    `json:"kdf_params"`
+		AuthHashB64           string `json:"auth_hash_b64,omitempty"`
+		RecoveryHashB64       string `json:"recovery_hash_b64,omitempty"`
+		VaultKeyWrappedB64    string `json:"vault_key_wrapped_b64,omitempty"`
+		VaultKeyWrappedRecB64 string `json:"vault_key_wrapped_recov_b64,omitempty"`
+		VaultBlobB64          string `json:"vault_blob_b64,omitempty"`
+		VaultNonceB64         string `json:"vault_nonce_b64,omitempty"`
+		VaultRevision         int64  `json:"vault_revision"`
+		UpdatedAt             string `json:"updated_at"`
 	}
-	var outData []backupUser
+	var usersBackup []backupUser
 	for _, su := range users {
 		u, err := st.GetUserByID(su.ID)
 		if err != nil {
 			return err
 		}
 		bu := backupUser{
-			Username:             u.Username,
-			Status:               u.Status,
-			KDFAlgorithm:         u.KDFAlgorithm,
-			KDFParams:            u.KDFParams,
-			VaultRevision:        u.VaultRevision,
-			UpdatedAt:            u.UpdatedAt.Format(time.RFC3339),
+			Username:      u.Username,
+			Status:        u.Status,
+			KDFAlgorithm:  u.KDFAlgorithm,
+			KDFParams:     u.KDFParams,
+			VaultRevision: u.VaultRevision,
+			UpdatedAt:     u.UpdatedAt.Format(time.RFC3339),
 		}
 		if u.Salt != nil {
 			bu.SaltB64 = crypto.EncodeBase64(u.Salt)
@@ -325,7 +439,37 @@ func cmdBackup(log *slog.Logger, args []string) error {
 		if u.VaultNonce != nil {
 			bu.VaultNonceB64 = crypto.EncodeBase64(u.VaultNonce)
 		}
-		outData = append(outData, bu)
+		usersBackup = append(usersBackup, bu)
+	}
+
+	type tlsBackup struct {
+		Mode       string `json:"mode,omitempty"`
+		CertPEMB64 string `json:"cert_pem_b64,omitempty"`
+		KeyPEMB64  string `json:"key_pem_b64,omitempty"`
+	}
+	var tlsBk *tlsBackup
+	if cfg.TLSMode == config.TLSModeSelfSigned {
+		if certB64, err := fileToB64(certPath(cfg)); err == nil {
+			keyB64, keyErr := fileToB64(keyPath(cfg))
+			if keyErr == nil {
+				tlsBk = &tlsBackup{Mode: cfg.TLSMode, CertPEMB64: certB64, KeyPEMB64: keyB64}
+			}
+		}
+	}
+
+	type backupFile struct {
+		Format    string       `json:"format"`
+		Version   int          `json:"version"`
+		CreatedAt string       `json:"created_at"`
+		TLS       *tlsBackup   `json:"tls,omitempty"`
+		Users     []backupUser `json:"users"`
+	}
+	outData := backupFile{
+		Format:    "passone-backup",
+		Version:   2,
+		CreatedAt: time.Now().UTC().Format(time.RFC3339),
+		TLS:       tlsBk,
+		Users:     usersBackup,
 	}
 	data, err := json.MarshalIndent(outData, "", "  ")
 	if err != nil {
@@ -334,6 +478,14 @@ func cmdBackup(log *slog.Logger, args []string) error {
 	if err := os.WriteFile(*out, data, 0o600); err != nil {
 		return err
 	}
-	log.Info("backup completed", "file", *out, "users", len(outData))
+	log.Info("backup completed", "file", *out, "users", len(usersBackup), "tls", tlsBk != nil)
 	return nil
+}
+
+func fileToB64(path string) (string, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return crypto.EncodeBase64(b), nil
 }

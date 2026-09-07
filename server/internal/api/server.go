@@ -10,6 +10,7 @@ import (
 
 	"passone/internal/config"
 	"passone/internal/store"
+	"passone/internal/tlscert"
 )
 
 const rfc3339 = time.RFC3339
@@ -42,6 +43,32 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
 	}
 }
 
+// TLSPublic returns the transport mode the server presents to clients
+// and, for "selfsigned", the SPKI fingerprint to pair with. The fingerprint
+// is read from the current certificate so it always matches the file on
+// disk (also after `passone tls rotate` without a server restart).
+func (s *Server) TLSPublic() (mode, fingerprint string) {
+	switch s.cfg.TLSMode {
+	case config.TLSModeSelfSigned:
+		if info, err := tlscert.Inform(certPath(s.cfg)); err == nil {
+			return config.TLSModeSelfSigned, info.Fingerprint.String()
+		}
+		return config.TLSModeSelfSigned, ""
+	case config.TLSModeCustom:
+		return config.TLSModeCustom, ""
+	default:
+		return config.TLSModeNone, ""
+	}
+}
+
+// certPath returns the certificate path for the current config.
+func certPath(cfg *config.Config) string {
+	if cfg.TLSCert != "" {
+		return cfg.TLSCert
+	}
+	return "tls-cert.pem"
+}
+
 // AdminToken returns the effective admin token (useful for the CLI to print it on first startup).
 func (s *Server) AdminToken() string { return s.admin }
 
@@ -65,6 +92,7 @@ func (s *Server) Routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/admin/users", s.logged(s.adminOnly(s.handleAdminCreateUser)))
 	mux.HandleFunc("DELETE /api/v1/admin/users/{id}", s.logged(s.adminOnly(s.handleAdminDeleteUser)))
 	mux.HandleFunc("POST /api/v1/admin/users/{id}/reset-invite", s.logged(s.adminOnly(s.handleAdminResetInvite)))
+	mux.HandleFunc("GET /api/v1/admin/pairing", s.logged(s.adminOnly(s.handleAdminPairing)))
 
 	mux.HandleFunc("GET /health", s.handleHealth)
 
