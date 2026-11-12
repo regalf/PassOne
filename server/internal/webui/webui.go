@@ -10,6 +10,12 @@ import (
 //go:embed static/*
 var staticFS embed.FS
 
+// Asset returns the content of an embedded static file. It is used by the
+// tests to assert that the admin UI never renders server data as markup.
+func Asset(name string) ([]byte, error) {
+	return fs.ReadFile(staticFS, "static/"+name)
+}
+
 // WithAdminUI mounts the admin web UI on /admin/ and proxies to the bearer token.
 func WithAdminUI(next http.Handler, adminToken string) http.Handler {
 	sub, err := fs.Sub(staticFS, "static")

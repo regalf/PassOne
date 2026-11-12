@@ -49,8 +49,8 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 `
 
 const (
-	StatusPending = "pending"
-	StatusActive  = "active"
+	StatusPending  = "pending"
+	StatusActive   = "active"
 	StatusDisabled = "disabled"
 )
 
@@ -80,10 +80,10 @@ type User struct {
 	UpdatedAt            time.Time
 	LastLoginAt          time.Time
 
-	kdfParamsRaw  string
-	createdAtRaw  string
-	updatedAtRaw  string
-	lastLoginRaw  sql.NullString
+	kdfParamsRaw string
+	createdAtRaw string
+	updatedAtRaw string
+	lastLoginRaw sql.NullString
 }
 
 type Session struct {
@@ -129,6 +129,9 @@ func (s *Store) Ping() error { return s.db.Ping() }
 
 // CreatePendingUser creates a user in pending status and returns the invite token.
 func (s *Store) CreatePendingUser(username string) (string, error) {
+	if err := ValidateUsername(username); err != nil {
+		return "", err
+	}
 	token, err := crypto.RandomHex(32)
 	if err != nil {
 		return "", err
@@ -145,6 +148,9 @@ func (s *Store) CreatePendingUser(username string) (string, error) {
 
 // InsertUser inserts a user already complete with auth materials (direct registration).
 func (s *Store) InsertUser(u *User) (int64, error) {
+	if err := ValidateUsername(u.Username); err != nil {
+		return 0, err
+	}
 	kp, err := json.Marshal(u.KDFParams)
 	if err != nil {
 		return 0, err

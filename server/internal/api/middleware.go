@@ -24,12 +24,34 @@ const (
 // JSON decoders already apply the same limit).
 const maxBodyBytes = 10 << 20
 
-// secureHeaders sets hardening headers on every response.
-func secureHeaders(next http.Handler) http.Handler {
+// contentSecurityPolicy is applied to every response.
+//
+// The admin web UI ships its CSS and JS as separate files, so a strict policy
+// is possible: no inline script, no inline style attributes, no plugins, no
+// framing. This is the second layer of defence against XSS in the UI (the
+// first one being that the UI never renders server data as markup).
+const contentSecurityPolicy = "default-src 'none'; " +
+	"script-src 'self'; " +
+	"style-src 'self'; " +
+	"img-src 'self' data:; " +
+	"connect-src 'self'; " +
+	"base-uri 'none'; " +
+	"form-action 'none'; " +
+	"frame-ancestors 'none'"
+
+// SecureHeaders sets hardening headers on every response.
+//
+// It is exported so that it can be applied to the *outermost* handler: the
+// admin web UI is mounted next to the API, outside the API router, and would
+// otherwise be served without any hardening header.
+func SecureHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Content-Security-Policy", contentSecurityPolicy)
+		w.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		// HSTS only makes sense over HTTPS (direct TLS or behind a proxy that
 		// forwards the scheme). Setting it on plain HTTP would be harmful.
 		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
@@ -37,6 +59,11 @@ func secureHeaders(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// secureHeaders sets hardening headers on every response.
+func secureHeaders(next http.Handler) http.Handler {
+	return SecureHeaders(next)
 }
 
 // limitBody caps the size of every request body.
@@ -118,7 +145,7 @@ func (s *Server) adminOnly(next http.HandlerFunc) http.HandlerFunc {
 // rateLimited applies per-IP rate limiting on the name endpoint.
 func (s *Server) rateLimited(name string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !s.rl.Allow(clientIP(r)) {
+		if !s.rl.Allow(name, clientIP(r)) {
 			writeErr(w, http.StatusTooManyRequests, "too many requests, try again later", "rate_limited")
 			return
 		}
@@ -127,10 +154,13 @@ func (s *Server) rateLimited(name string, next http.HandlerFunc) http.HandlerFun
 }
 
 func clientIP(r *http.Request) string {
-	// Trust X-Forwarded-For only when the immediate peer is a local reverse
-	// proxy (loopback/private network). Otherwise an attacker could spoof
-	// arbitrary IPs to bypass rate limiting.
-	if isPrivatePeer(r.RemoteAddr) {
+	// Trust X-Forwarded-For only when the immediate peer is a loopback proxy.
+	//
+	// The server binds to 0.0.0.0 by default, so "the peer is on a private
+	// network" is NOT a trust signal: any client on the LAN could then spoof
+	// the header and bypass the rate limiter completely. Loopback is the only
+	// case where the peer is necessarily the local reverse proxy.
+	if isLoopbackPeer(r.RemoteAddr) {
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
 			return strings.TrimSpace(strings.Split(xff, ",")[0])
 		}
@@ -142,10 +172,10 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
-// isPrivatePeer reports whether the immediate connection comes from loopback
-// or a private/unique-local address (i.e. a reverse proxy on the same host or
-// LAN). IPv6 zone identifiers are stripped before parsing.
-func isPrivatePeer(remoteAddr string) bool {
+// isLoopbackPeer reports whether the immediate connection comes from the
+// loopback interface (i.e. a reverse proxy running on this same host).
+// IPv6 zone identifiers are stripped before parsing.
+func isLoopbackPeer(remoteAddr string) bool {
 	host, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
 		host = remoteAddr
@@ -157,7 +187,7 @@ func isPrivatePeer(remoteAddr string) bool {
 	if ip == nil {
 		return false
 	}
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast()
+	return ip.IsLoopback()
 }
 
 type statusWriter struct {

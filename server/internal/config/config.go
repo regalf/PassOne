@@ -58,9 +58,12 @@ type Config struct {
 // Default returns a configuration with default values.
 func Default() *Config {
 	return &Config{
-		Addr:              DefaultAddr,
-		DBPath:            DefaultDBPath,
-		AllowRegistration: true,
+		Addr:   DefaultAddr,
+		DBPath: DefaultDBPath,
+		// Registration is invite-only by default: anyone who can reach the
+		// server can otherwise create an account on it. The admin can enable
+		// direct sign-up with `allow_registration: true`.
+		AllowRegistration: false,
 		EnableUI:          true,
 		TLSMode:           "none",
 		SessionTTL:        DefaultSessionTTL,

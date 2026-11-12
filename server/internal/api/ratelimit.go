@@ -5,11 +5,12 @@ import (
 	"time"
 )
 
-// RateLimiter is a per-IP token bucket limiter.
+// RateLimiter is a per-(endpoint, IP) token bucket limiter.
 //
-// Each IP starts with a full bucket of `limit` tokens; a token is consumed per
-// allowed request and tokens are refilled at `limit` per `window`. This is
-// smoother than a fixed window (no double burst at the window boundary).
+// Each (name, IP) pair starts with a full bucket of `limit` tokens; a token is
+// consumed per allowed request and tokens are refilled at `limit` per
+// `window`. This is smoother than a fixed window (no double burst at the
+// window boundary).
 // Buckets that stay idle for more than 2*`window` are removed periodically so
 // the map can never grow without bound.
 type RateLimiter struct {
@@ -21,9 +22,9 @@ type RateLimiter struct {
 }
 
 type bucket struct {
-	tokens    float64
+	tokens     float64
 	lastRefill time.Time
-	lastSeen  time.Time
+	lastSeen   time.Time
 }
 
 // NewRateLimiter creates a limiter with `limit` requests per `window` per IP.
@@ -35,8 +36,10 @@ func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
 	}
 }
 
-// Allow returns true if the IP can make another request.
-func (r *RateLimiter) Allow(ip string) bool {
+// Allow returns true if the IP can make another request to the endpoint
+// `name`. Each endpoint has its own budget, so a burst of requests against
+// one endpoint cannot exhaust the budget of another one.
+func (r *RateLimiter) Allow(name, ip string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -45,11 +48,13 @@ func (r *RateLimiter) Allow(ip string) bool {
 		r.gc(now)
 	}
 
-	b, ok := r.buckets[ip]
+	key := name + "|" + ip
+	b, ok := r.buckets[key]
 	if !ok {
+		// A new bucket starts full: the token is consumed below like any
+		// other request, so the effective limit is exactly `limit`.
 		b = &bucket{tokens: r.limit, lastRefill: now, lastSeen: now}
-		r.buckets[ip] = b
-		return true
+		r.buckets[key] = b
 	}
 
 	// Refill based on elapsed time, capped at the bucket capacity.

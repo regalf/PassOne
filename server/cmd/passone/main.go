@@ -7,9 +7,11 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -119,6 +121,9 @@ func cmdServe(log *slog.Logger, args []string) error {
 	if cfg.EnableUI {
 		handler = webui.WithAdminUI(handler, srv.AdminToken())
 	}
+	// The admin UI is mounted outside the API router, so the hardening
+	// headers are applied again here to make sure it is covered too.
+	handler = api.SecureHeaders(handler)
 
 	usingTLS := false
 	switch cfg.TLSMode {
@@ -146,6 +151,15 @@ func cmdServe(log *slog.Logger, args []string) error {
 		log.Info("admin token generated (save it!)", "admin_token", prefix, "db_path", cfg.DBPath)
 	} else {
 		log.Info("admin token from configuration", "db_path", cfg.DBPath)
+	}
+
+	// Security posture warnings: the server is reachable from the network
+	// and/or accepts self-registration.
+	if !isLoopbackAddr(cfg.Addr) {
+		log.Warn("server is bound to a non-loopback address: it is reachable from the network. Enable TLS (tls_mode) and restrict access with a firewall.")
+	}
+	if cfg.AllowRegistration {
+		log.Warn("direct registration is ENABLED: anyone able to reach this server can create an account. Set allow_registration: false to manage users with invite tokens only.")
 	}
 
 	httpServer := &http.Server{
@@ -250,6 +264,26 @@ func keyPath(cfg *config.Config) string {
 		return cfg.TLSKey
 	}
 	return defaultTLSKey
+}
+
+// isLoopbackAddr reports whether the listen address binds only to the
+// loopback interface (i.e. the server is not reachable from the network).
+func isLoopbackAddr(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	if host == "" {
+		return false
+	}
+	if i := strings.IndexByte(host, '%'); i >= 0 {
+		host = host[:i]
+	}
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func logConfigTLS(log *slog.Logger, cfg *config.Config, info *tlscert.Info) {

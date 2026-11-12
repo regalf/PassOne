@@ -1,0 +1,30 @@
+:root { --bg:#0f1115; --panel:#171a21; --border:#2a2f3a; --text:#e6e8ee; --muted:#8b93a5; --accent:#4f8cff; --danger:#e05252; --ok:#3fb964; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui, sans-serif; }
+header { padding:16px 24px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:12px; }
+header h1 { font-size:16px; margin:0; }
+header .badge { font-size:11px; color:var(--muted); border:1px solid var(--border); padding:2px 8px; border-radius:10px; }
+main { max-width:860px; margin:24px auto; padding:0 16px; }
+.card { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:16px; }
+.card h2 { font-size:14px; margin:0 0 12px; }
+input, button { font:inherit; }
+input[type=text], input[type=password], input[type=search] { background:var(--bg); border:1px solid var(--border); color:var(--text); padding:8px 10px; border-radius:6px; width:100%; }
+button { cursor:pointer; background:var(--accent); color:#fff; border:0; padding:8px 14px; border-radius:6px; }
+button.secondary { background:var(--border); }
+button.danger { background:var(--danger); }
+.row { display:flex; gap:8px; margin-bottom:8px; }
+table { width:100%; border-collapse:collapse; }
+th, td { text-align:left; padding:8px; border-bottom:1px solid var(--border); }
+th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; }
+.status { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; }
+.status.pending { background:#5b4b00; color:#ffd75e; }
+.status.active { background:#1d4a2c; color:#7ee2a0; }
+.status.disabled { background:#4a1d1d; color:#ff8b8b; }
+.invite { background:#002244; border:1px dashed var(--accent); color:#a9ccff; padding:8px; border-radius:6px; font-family:monospace; word-break:break-all; }
+.hidden { display:none; }
+.mt-6 { margin-top:6px; }
+.mt-12 { margin-top:12px; }
+.error { color:var(--danger); }
+.ok { color:var(--ok); }
+.muted { color:var(--muted); font-size:12px; }
+#toast { position:fixed; bottom:16px; right:16px; background:var(--panel); border:1px solid var(--border); padding:10px 14px; border-radius:8px; display:none; max-width:380px; }

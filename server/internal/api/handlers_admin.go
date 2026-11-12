@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -90,12 +91,16 @@ func (s *Server) handleAdminCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username := strings.TrimSpace(req.Username)
-	if username == "" || len(username) > 128 {
+	if err := store.ValidateUsername(username); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid username", "bad_username")
 		return
 	}
 	token, err := s.store.CreatePendingUser(username)
 	if err != nil {
+		if errors.Is(err, store.ErrInvalidUsername) {
+			writeErr(w, http.StatusBadRequest, "invalid username", "bad_username")
+			return
+		}
 		writeErr(w, http.StatusConflict, "username already in use", "username_taken")
 		return
 	}

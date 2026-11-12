@@ -10,22 +10,22 @@ import (
 )
 
 type kdfInput struct {
-	Algorithm string       `json:"algorithm"`
+	Algorithm string          `json:"algorithm"`
 	Params    store.KDFParams `json:"params"`
 }
 
 type setupRequest struct {
-	Username                  string       `json:"username"`
-	InviteToken               string       `json:"invite_token"`
-	AuthHashB64               string       `json:"auth_hash_b64"`
-	SaltB64                   string       `json:"salt_b64"`
-	KDF                       kdfInput     `json:"kdf"`
-	VaultKeyWrappedB64        string       `json:"vault_key_wrapped_b64"`
-	VaultKeyWrappedRecovB64   string       `json:"vault_key_wrapped_recov_b64"`
-	RecoveryHashB64           string       `json:"recovery_hash_b64"`
-	VaultBlobB64              string       `json:"vault_blob_b64"`
-	VaultNonceB64             string       `json:"vault_nonce_b64"`
-	DeviceName                string       `json:"device_name"`
+	Username                string   `json:"username"`
+	InviteToken             string   `json:"invite_token"`
+	AuthHashB64             string   `json:"auth_hash_b64"`
+	SaltB64                 string   `json:"salt_b64"`
+	KDF                     kdfInput `json:"kdf"`
+	VaultKeyWrappedB64      string   `json:"vault_key_wrapped_b64"`
+	VaultKeyWrappedRecovB64 string   `json:"vault_key_wrapped_recov_b64"`
+	RecoveryHashB64         string   `json:"recovery_hash_b64"`
+	VaultBlobB64            string   `json:"vault_blob_b64"`
+	VaultNonceB64           string   `json:"vault_nonce_b64"`
+	DeviceName              string   `json:"device_name"`
 }
 
 // validateKDF checks that the KDF parameters are reasonable (anti-DoS).
@@ -56,8 +56,8 @@ func (s *Server) validateKDF(k kdfInput) bool {
 }
 
 type sessionResponse struct {
-	Token     string `json:"token"`
-	ExpiresAt string `json:"expires_at"`
+	Token     string     `json:"token"`
+	ExpiresAt string     `json:"expires_at"`
 	User      userPublic `json:"user"`
 }
 
@@ -89,7 +89,7 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	username := strings.TrimSpace(req.Username)
-	if username == "" || len(username) > 128 {
+	if err := store.ValidateUsername(username); err != nil {
 		writeErr(w, http.StatusBadRequest, "invalid username", "bad_username")
 		return
 	}
@@ -225,11 +225,11 @@ func (s *Server) handlePrelogin(w http.ResponseWriter, r *http.Request) {
 		kdf = kdfInput{Algorithm: u.KDFAlgorithm, Params: u.KDFParams}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"username":    username,
-		"status":      status,
-		"salt_b64":    crypto.EncodeBase64(salt),
-		"kdf":         kdf,
-		"server_tls":  s.tlsInfo(),
+		"username":   username,
+		"status":     status,
+		"salt_b64":   crypto.EncodeBase64(salt),
+		"kdf":        kdf,
+		"server_tls": s.tlsInfo(),
 	})
 }
 
@@ -245,9 +245,9 @@ func (s *Server) tlsInfo() map[string]any {
 }
 
 type loginRequest struct {
-	Username   string `json:"username"`
+	Username    string `json:"username"`
 	AuthHashB64 string `json:"auth_hash_b64"`
-	DeviceName string `json:"device_name"`
+	DeviceName  string `json:"device_name"`
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
