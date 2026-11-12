@@ -265,6 +265,9 @@ def build_appimage():
         sys.exit("Linux bundle not found; run the Linux build first")
 
     appdir = Path(tempfile.mkdtemp(prefix="passone-appdir-"))
+    # appimagetool refuses to package an AppDir that other users cannot read
+    # and execute: mkdtemp creates it with mode 0700.
+    os.chmod(appdir, 0o755)
     usr_lib = appdir / "usr/lib/passone"
     shutil.copytree(bundle, usr_lib)
     shutil.copyfile(icon, appdir / "passone.png")
@@ -280,7 +283,8 @@ def build_appimage():
         'exec "$HERE/usr/lib/passone/passone_app" "$@"\n'
     )
     (appdir / "AppRun").chmod(0o755)
-    (appdir / "passone.desktop").write_text(
+    # One main category only ("Security" is an additional category).
+    desktop = (
         "[Desktop Entry]\n"
         "Type=Application\n"
         "Name=PassOne\n"
@@ -290,8 +294,12 @@ def build_appimage():
         "Exec=passone\n"
         "Terminal=false\n"
         "Categories=Utility;Security;\n"
+        "Keywords=password;manager;vault;totp;ssh;passkey;\n"
         "StartupNotify=false\n"
     )
+    (appdir / "passone.desktop").write_text(desktop)
+    (appdir / "usr/share/applications/passone.desktop").write_text(desktop)
+    os.chmod(appdir / "passone.png", 0o644)
 
     out = DIST / f"passone-{VERSION}-x86_64.AppImage"
     run([APPIMAGE_BIN, "--appimage-extract-and-run",
