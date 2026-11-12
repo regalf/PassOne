@@ -89,9 +89,9 @@ func put(t *testing.T, url, path, token string, body any) (int, map[string]any) 
 // setupPayload builds a realistic setup payload.
 func setupPayload(username, invite string) map[string]any {
 	p := map[string]any{
-		"username":               username,
-		"auth_hash_b64":          crypto.EncodeBase64([]byte("fake-auth-hash-32-bytes-long!!!")),
-		"salt_b64":               crypto.EncodeBase64([]byte("fake-salt")),
+		"username":      username,
+		"auth_hash_b64": crypto.EncodeBase64([]byte("fake-auth-hash-32-bytes-long!!!")),
+		"salt_b64":      crypto.EncodeBase64([]byte("fake-salt")),
 		"kdf": map[string]any{
 			"algorithm": "argon2id",
 			"params":    map[string]any{"m": 65536, "t": 3, "p": 4},
@@ -192,8 +192,8 @@ func TestVaultGetPutAndConflict(t *testing.T) {
 	}
 
 	code, out = put(t, ts.URL, "/api/v1/vault", token, map[string]any{
-		"base_revision": 1,
-		"vault_blob_b64": crypto.EncodeBase64([]byte("new-blob")),
+		"base_revision":   1,
+		"vault_blob_b64":  crypto.EncodeBase64([]byte("new-blob")),
 		"vault_nonce_b64": crypto.EncodeBase64([]byte("nonce2")),
 	})
 	if code != 200 {
@@ -205,8 +205,8 @@ func TestVaultGetPutAndConflict(t *testing.T) {
 
 	// Conflict: stale base_revision.
 	code, out = put(t, ts.URL, "/api/v1/vault", token, map[string]any{
-		"base_revision": 1,
-		"vault_blob_b64": crypto.EncodeBase64([]byte("stale")),
+		"base_revision":   1,
+		"vault_blob_b64":  crypto.EncodeBase64([]byte("stale")),
 		"vault_nonce_b64": crypto.EncodeBase64([]byte("nonce3")),
 	})
 	if code != 409 {
@@ -369,9 +369,9 @@ func TestChangePasswordAndLogoutAll(t *testing.T) {
 	code, _ = post(t, ts.URL, "/api/v1/auth/change-password", token, map[string]any{
 		"old_auth_hash_b64": crypto.EncodeBase64([]byte("fake-auth-hash-32-bytes-long!!!")),
 		"new": map[string]any{
-			"auth_hash_b64":        crypto.EncodeBase64([]byte("new-hash-32-bytes-long!!!!!")),
-			"salt_b64":             crypto.EncodeBase64([]byte("new-salt")),
-			"kdf":                  map[string]any{"algorithm": "argon2id", "params": map[string]any{"m": 65536, "t": 3, "p": 4}},
+			"auth_hash_b64":         crypto.EncodeBase64([]byte("new-hash-32-bytes-long!!!!!")),
+			"salt_b64":              crypto.EncodeBase64([]byte("new-salt")),
+			"kdf":                   map[string]any{"algorithm": "argon2id", "params": map[string]any{"m": 65536, "t": 3, "p": 4}},
 			"vault_key_wrapped_b64": crypto.EncodeBase64([]byte("new-wrapped")),
 		},
 	})
@@ -437,11 +437,11 @@ func TestRecoverFlow(t *testing.T) {
 	code, out = post(t, ts.URL, "/api/v1/auth/recover", "", map[string]any{
 		"username": "grace", "recovery_hash_b64": crypto.EncodeBase64([]byte("recovery-hash-1")),
 		"new": map[string]any{
-			"auth_hash_b64": crypto.EncodeBase64([]byte("new-hash-after-recovery")),
-			"salt_b64":      crypto.EncodeBase64([]byte("salt-2")),
-			"kdf":           map[string]any{"algorithm": "argon2id", "params": map[string]any{"m": 65536, "t": 3, "p": 4}},
-			"vault_key_wrapped_b64": crypto.EncodeBase64([]byte("wrapped-2")),
-			"recovery_hash_b64":     crypto.EncodeBase64([]byte("recovery-hash-2")),
+			"auth_hash_b64":               crypto.EncodeBase64([]byte("new-hash-after-recovery")),
+			"salt_b64":                    crypto.EncodeBase64([]byte("salt-2")),
+			"kdf":                         map[string]any{"algorithm": "argon2id", "params": map[string]any{"m": 65536, "t": 3, "p": 4}},
+			"vault_key_wrapped_b64":       crypto.EncodeBase64([]byte("wrapped-2")),
+			"recovery_hash_b64":           crypto.EncodeBase64([]byte("recovery-hash-2")),
 			"vault_key_wrapped_recov_b64": crypto.EncodeBase64([]byte("wrapped-recov-2")),
 		},
 	})
@@ -467,9 +467,9 @@ func TestRecoverFlow(t *testing.T) {
 	code, _ = post(t, ts.URL, "/api/v1/auth/recover", "", map[string]any{
 		"username": "grace", "recovery_hash_b64": crypto.EncodeBase64([]byte("recovery-hash-1")),
 		"new": map[string]any{
-			"auth_hash_b64": crypto.EncodeBase64([]byte("x")),
-			"salt_b64":      crypto.EncodeBase64([]byte("y")),
-			"kdf":           map[string]any{"algorithm": "argon2id", "params": map[string]any{"m": 65536, "t": 3, "p": 4}},
+			"auth_hash_b64":         crypto.EncodeBase64([]byte("x")),
+			"salt_b64":              crypto.EncodeBase64([]byte("y")),
+			"kdf":                   map[string]any{"algorithm": "argon2id", "params": map[string]any{"m": 65536, "t": 3, "p": 4}},
 			"vault_key_wrapped_b64": crypto.EncodeBase64([]byte("z")),
 		},
 	})

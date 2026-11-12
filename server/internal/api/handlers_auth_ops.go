@@ -11,12 +11,12 @@ import (
 
 // authMaterialInput collects the auth materials sent by the client.
 type authMaterialInput struct {
-	AuthHashB64             string    `json:"auth_hash_b64"`
-	SaltB64                 string    `json:"salt_b64"`
-	KDF                     kdfInput  `json:"kdf"`
-	VaultKeyWrappedB64      string    `json:"vault_key_wrapped_b64"`
-	VaultKeyWrappedRecovB64 string    `json:"vault_key_wrapped_recov_b64"`
-	RecoveryHashB64         string    `json:"recovery_hash_b64"`
+	AuthHashB64             string   `json:"auth_hash_b64"`
+	SaltB64                 string   `json:"salt_b64"`
+	KDF                     kdfInput `json:"kdf"`
+	VaultKeyWrappedB64      string   `json:"vault_key_wrapped_b64"`
+	VaultKeyWrappedRecovB64 string   `json:"vault_key_wrapped_recov_b64"`
+	RecoveryHashB64         string   `json:"recovery_hash_b64"`
 }
 
 // parseAuthMaterial validates and decodes the materials; recoveryHash/vaultKeyWrappedRecov

@@ -9,24 +9,24 @@ import (
 
 // vaultPayload is the wire representation of the vault (encrypted blob + materials).
 type vaultPayload struct {
-	VaultBlobB64            string       `json:"vault_blob_b64"`
-	VaultNonceB64           string       `json:"vault_nonce_b64"`
-	VaultKeyWrappedB64      string       `json:"vault_key_wrapped_b64"`
-	VaultKeyWrappedRecovB64 string       `json:"vault_key_wrapped_recov_b64"`
-	RecoveryEnabled         bool         `json:"recovery_enabled"`
-	SaltB64                 string       `json:"salt_b64"`
-	KDF                     kdfInput     `json:"kdf"`
-	VaultRevision           int64        `json:"vault_revision"`
+	VaultBlobB64            string   `json:"vault_blob_b64"`
+	VaultNonceB64           string   `json:"vault_nonce_b64"`
+	VaultKeyWrappedB64      string   `json:"vault_key_wrapped_b64"`
+	VaultKeyWrappedRecovB64 string   `json:"vault_key_wrapped_recov_b64"`
+	RecoveryEnabled         bool     `json:"recovery_enabled"`
+	SaltB64                 string   `json:"salt_b64"`
+	KDF                     kdfInput `json:"kdf"`
+	VaultRevision           int64    `json:"vault_revision"`
 }
 
 func (s *Server) handleVaultGet(w http.ResponseWriter, r *http.Request) {
 	u := s.userFrom(r.Context())
 	payload := vaultPayload{
-		VaultBlobB64:      crypto.EncodeBase64(u.VaultBlob),
-		VaultNonceB64:     crypto.EncodeBase64(u.VaultNonce),
+		VaultBlobB64:       crypto.EncodeBase64(u.VaultBlob),
+		VaultNonceB64:      crypto.EncodeBase64(u.VaultNonce),
 		VaultKeyWrappedB64: crypto.EncodeBase64(u.VaultKeyWrapped),
-		RecoveryEnabled:   u.RecoveryHash != nil,
-		SaltB64:           crypto.EncodeBase64(u.Salt),
+		RecoveryEnabled:    u.RecoveryHash != nil,
+		SaltB64:            crypto.EncodeBase64(u.Salt),
 		KDF: kdfInput{
 			Algorithm: u.KDFAlgorithm,
 			Params:    u.KDFParams,
@@ -40,11 +40,11 @@ func (s *Server) handleVaultGet(w http.ResponseWriter, r *http.Request) {
 }
 
 type vaultPutRequest struct {
-	BaseRevision              int64  `json:"base_revision"`
-	VaultBlobB64              string `json:"vault_blob_b64"`
-	VaultNonceB64             string `json:"vault_nonce_b64"`
-	VaultKeyWrappedB64        string `json:"vault_key_wrapped_b64"`
-	VaultKeyWrappedRecovB64   string `json:"vault_key_wrapped_recov_b64"`
+	BaseRevision            int64  `json:"base_revision"`
+	VaultBlobB64            string `json:"vault_blob_b64"`
+	VaultNonceB64           string `json:"vault_nonce_b64"`
+	VaultKeyWrappedB64      string `json:"vault_key_wrapped_b64"`
+	VaultKeyWrappedRecovB64 string `json:"vault_key_wrapped_recov_b64"`
 }
 
 func (s *Server) handleVaultPut(w http.ResponseWriter, r *http.Request) {
@@ -83,8 +83,8 @@ func (s *Server) handleVaultPut(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == store.ErrConflict {
 			writeJSON(w, http.StatusConflict, map[string]any{
-				"error":           "revision conflict",
-				"code":            "revision_conflict",
+				"error":            "revision conflict",
+				"code":             "revision_conflict",
 				"current_revision": u.VaultRevision,
 			})
 			return
