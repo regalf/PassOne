@@ -78,6 +78,7 @@ func (s *Server) Routes() http.Handler {
 
 	mux.HandleFunc("POST /api/v1/auth/prelogin", s.logged(s.rateLimited("prelogin", s.handlePrelogin)))
 	mux.HandleFunc("POST /api/v1/auth/setup", s.logged(s.rateLimited("setup", s.handleSetup)))
+	mux.HandleFunc("POST /api/v1/auth/invite/lookup", s.logged(s.rateLimited("invite", s.handleInviteLookup)))
 	mux.HandleFunc("POST /api/v1/auth/login", s.logged(s.rateLimited("login", s.handleLogin)))
 	mux.HandleFunc("POST /api/v1/auth/logout", s.logged(s.authed(s.handleLogout)))
 	mux.HandleFunc("POST /api/v1/auth/logout-all", s.logged(s.authed(s.handleLogoutAll)))
@@ -133,7 +134,14 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.Ping(); err != nil {
 		status = "degraded"
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": status, "time": time.Now().UTC().Format(time.RFC3339)})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status": status,
+		"time":   time.Now().UTC().Format(time.RFC3339),
+		// The clients use it to decide how a new account is created: with
+		// direct registration the app shows the sign-up form, without it
+		// the invite token flow.
+		"allow_registration": s.cfg.AllowRegistration,
+	})
 }
 
 func httpStatus(err error) (int, string) {

@@ -9,6 +9,7 @@ import '../../crypto/kdf.dart';
 import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
 import '../../state/session.dart';
+import 'invite_screen.dart';
 import 'pairing_screen.dart';
 import 'recover_screen.dart';
 import 'register_screen.dart';
@@ -27,7 +28,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscure = true;
   bool _loading = false;
   String? _error;
-  String? _showSetupInvite;
 
   /// 0 = server address step, 1 = classic login step.
   int _step = 0;
@@ -179,7 +179,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           );
       ref.read(sessionControllerProvider.notifier).touch();
     } on NeedsSetupException {
-      setState(() => _showSetupInvite = username);
+      // The account exists but has no password yet: the invite token
+      // identifies it, so the user does not have to type the user name.
+      _openInviteScreen(server);
     } on ApiException catch (e) {
       if (e.code == ApiException.codePairingRequired ||
           e.code == ApiException.codeCertChanged) {
@@ -207,6 +209,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  /// Pushes the invite token screen: the token identifies the account, so
+  /// the user does not have to type the user name.
+  void _openInviteScreen(String server) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => InviteScreen(
+          serverUrl: server,
+          onDone: () => ref.read(sessionControllerProvider.notifier).touch(),
+        ),
+      ),
+    );
+  }
+
   void _backToServer() {
     setState(() {
       _step = 0;
@@ -217,19 +232,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final invite = _showSetupInvite;
-    if (invite != null) {
-      return RegisterScreen(
-        serverUrl: _normalizeServer(_serverController.text),
-        initialUsername: invite,
-        inviteMode: true,
-        onDone: () {
-          setState(() => _showSetupInvite = null);
-          ref.read(sessionControllerProvider.notifier).touch();
-        },
-      );
-    }
-
     return Scaffold(
       body: SafeArea(
         child: Stack(
@@ -322,6 +324,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     // The normalized address is shown and used: it is the one the client
     // will actually talk to.
     final server = _normalizeServer(_serverController.text);
+    // How the server creates the accounts: the sign-up form or the invite
+    // token flow.
+    final allowRegistration =
+        ref.read(sessionControllerProvider).serverAllowRegistration;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -378,16 +384,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               : Text(l10n.signIn),
         ),
         const SizedBox(height: 8),
+        // With direct registration the user signs up on their own; without
+        // it the account is created with an invite token, and the token
+        // identifies it: the user does not have to type the user name.
         OutlinedButton(
           onPressed: _loading
               ? null
               : () => Navigator.of(context).push(
                     MaterialPageRoute(
-                        builder: (_) => RegisterScreen(
+                      builder: (_) => allowRegistration
+                          ? RegisterScreen(serverUrl: server)
+                          : InviteScreen(
                               serverUrl: server,
-                            )),
+                              onDone: () =>
+                                  ref.read(sessionControllerProvider.notifier).touch(),
+                            ),
+                    ),
                   ),
-          child: Text(l10n.createAccount),
+          child: Text(allowRegistration
+              ? l10n.createAccount
+              : l10n.inviteTokenButton),
         ),
         TextButton(
           onPressed: _loading

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -196,6 +197,36 @@ func (s *Server) createUser(username string, u *store.User) (int64, error) {
 
 type preloginRequest struct {
 	Username string `json:"username"`
+}
+
+type inviteLookupRequest struct {
+	InviteToken string `json:"invite_token"`
+}
+
+// handleInviteLookup resolves an invite token to the account it belongs to.
+//
+// The clients use it to start the invite flow: the user only types the
+// token, the server tells them which account they are configuring, so they
+// cannot mistype the user name.
+//
+// It does not consume the token: the account is activated by /auth/setup,
+// which verifies the token again.
+func (s *Server) handleInviteLookup(w http.ResponseWriter, r *http.Request) {
+	var req inviteLookupRequest
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeErr(w, http.StatusBadRequest, "invalid body", "bad_request")
+		return
+	}
+	u, err := s.store.FindPendingUserByInviteToken(strings.TrimSpace(req.InviteToken))
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusUnauthorized, "invalid invite token", "bad_invite")
+			return
+		}
+		writeErr(w, http.StatusInternalServerError, "internal error", "internal")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"username": u.Username})
 }
 
 // handlePrelogin returns salt + KDF parameters to derive the key before login.

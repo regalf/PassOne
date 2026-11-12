@@ -38,6 +38,13 @@ On first start, if `admin_token` is not in `config.yaml`, one is generated and p
 
 Usernames accept ASCII letters, digits and `- _ . @ +` (max 64 characters).
 
+**The invite flow in the app**: when the server has the direct registration
+disabled (the default), the login screen offers an *Invite token* button
+instead of the sign-up form. The user types the token, the server resolves it
+to the account and the app shows which account is being configured — the user
+name never has to be typed — then asks for the master password. The token is
+consumed when the account is created.
+
 Other useful commands:
 
 ```bash

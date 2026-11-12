@@ -18,6 +18,36 @@ class AppLocalizationsEn extends AppLocalizations {
   String get createAccount => 'Create an account';
 
   @override
+  String get inviteTokenButton => 'Invite token';
+
+  @override
+  String get inviteTitle => 'Set up your account';
+
+  @override
+  String get inviteStepToken => 'Invite token';
+
+  @override
+  String get inviteStepTokenIntro =>
+      'Enter the invite token you received from the administrator. It identifies your account: you will not have to type the user name.';
+
+  @override
+  String get inviteTokenInvalid => 'This invite token is not valid.';
+
+  @override
+  String get inviteAccountFound => 'Account found';
+
+  @override
+  String invitePasswordIntro(Object username) {
+    return 'Choose the master password of $username.';
+  }
+
+  @override
+  String get inviteUsernameLabel => 'User name';
+
+  @override
+  String get inviteContinue => 'Continue';
+
+  @override
   String get forgotRecovery => 'Forgot password? Use recovery key';
 
   @override

@@ -49,6 +49,17 @@ class ApiException implements Exception {
   String toString() => message;
 }
 
+/// What the server tells about itself on GET /health.
+class ServerInfo {
+  final String status;
+
+  /// Whether the users can create an account directly from the app. When it
+  /// is false the accounts are created with an invite token.
+  final bool allowRegistration;
+
+  const ServerInfo({required this.status, required this.allowRegistration});
+}
+
 /// Public data of a user returned by the server.
 class UserInfo {
   final int id;
@@ -336,6 +347,26 @@ class PassOneClient {
     return PreloginResult.fromJson(data as Map<String, dynamic>);
   }
 
+  /// Resolves an invite token to the account it belongs to.
+  ///
+  /// The user only has to type the token: the server tells which account is
+  /// being configured, so the user name cannot be mistyped. The token is not
+  /// consumed here: the account is activated by [setup].
+  ///
+  /// Throws an [ApiException] with code 'bad_invite' when the token is not
+  /// valid (or has already been used).
+  Future<String> inviteLookup(String inviteToken) async {
+    final data = await _send(
+      () => _http.post(
+        _uri('/auth/invite/lookup'),
+        headers: _headers(null),
+        body: jsonEncode({'invite_token': inviteToken}),
+      ),
+      null,
+    );
+    return (data as Map<String, dynamic>)['username'] as String;
+  }
+
   Future<Session> setup({
     required String username,
     String? inviteToken,
@@ -495,15 +526,23 @@ class PassOneClient {
     return (data as Map<String, dynamic>)['vault_revision'] as int;
   }
 
-  Future<void> healthCheck() async {
-    // Goes through [_send] so a TLS handshake refusal is surfaced with the
-    // pairing/pin-change codes, not as an opaque network error.
+  /// Checks that the server is reachable and returns what the client needs
+  /// to know about it.
+  ///
+  /// Goes through [_send] so a TLS handshake refusal is surfaced with the
+  /// pairing/pin-change codes, not as an opaque network error.
+  Future<ServerInfo> healthCheck() async {
     final data = await _send(() => _http.get(_healthUri()), null);
-    final status = (data as Map<String, dynamic>?)?['status'];
+    final json = data as Map<String, dynamic>?;
+    final status = json?['status'];
     if (status != 'ok') {
       throw ApiException(0, 'unreachable',
           'The server is not responding as expected');
     }
+    return ServerInfo(
+      status: status as String,
+      allowRegistration: json?['allow_registration'] as bool? ?? false,
+    );
   }
 
   /// The health endpoint is outside the /api/v1 prefix.

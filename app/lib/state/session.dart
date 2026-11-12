@@ -72,6 +72,13 @@ class SessionState {
   /// told about it.
   final bool kdfDowngraded;
 
+  /// Whether the server accepts direct registration. It decides how a new
+  /// account is created: the sign-up form, or the invite token flow.
+  ///
+  /// It is read from the server on GET /health; the default is true until
+  /// the server says otherwise.
+  final bool serverAllowRegistration;
+
   const SessionState({
     this.status = AuthStatus.unauthenticated,
     this.user,
@@ -87,6 +94,7 @@ class SessionState {
     this.cacheExpiredNotice = false,
     this.conflicts = const [],
     this.kdfDowngraded = false,
+    this.serverAllowRegistration = true,
   });
 
   SessionState copyWith({
@@ -104,6 +112,7 @@ class SessionState {
     bool? cacheExpiredNotice,
     List<VaultConflict>? conflicts,
     bool? kdfDowngraded,
+    bool? serverAllowRegistration,
   }) {
     return SessionState(
       status: status ?? this.status,
@@ -121,6 +130,8 @@ class SessionState {
       cacheExpiredNotice: cacheExpiredNotice ?? this.cacheExpiredNotice,
       conflicts: conflicts ?? this.conflicts,
       kdfDowngraded: kdfDowngraded ?? this.kdfDowngraded,
+      serverAllowRegistration:
+          serverAllowRegistration ?? this.serverAllowRegistration,
     );
   }
 
@@ -255,6 +266,15 @@ class SessionController extends StateNotifier<SessionState> {
     }
   }
 
+  /// Resolves an invite token to the account it belongs to.
+  ///
+  /// Returns the user name of the pending account: the invite flow only asks
+  /// for the token, the server tells which account is being configured.
+  Future<String> lookupInvite(String inviteToken) async {
+    final info = await client.inviteLookup(inviteToken.trim());
+    return info;
+  }
+
   /// Best-effort push of pending edits after a reconnect; swallows errors so
   /// the caller (resume/health check) never observes a failure.
   Future<void> _syncPendingSilently() async {
@@ -351,10 +371,15 @@ class SessionController extends StateNotifier<SessionState> {
     state = state.copyWith(settings: settings);
   }
 
-  /// Checks that the server responds on GET /health. Overridable in tests.
-  Future<void> checkServerReachability(String url) => PassOneClient(
-          baseUrl: url, serverPin: state.settings.serverPin)
-      .healthCheck();
+  /// Checks that the server responds on GET /health and remembers how it
+  /// creates the accounts. Overridable in tests.
+  Future<void> checkServerReachability(String url) async {
+    final info = await PassOneClient(
+            baseUrl: url, serverPin: state.settings.serverPin)
+        .healthCheck();
+    if (!mounted) return;
+    state = state.copyWith(serverAllowRegistration: info.allowRegistration);
+  }
 
   Future<void> setLockTimeout(LockTimeout timeout) async {
     final settings = state.settings.copyWith(lockTimeout: timeout);

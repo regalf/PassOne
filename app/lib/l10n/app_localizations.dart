@@ -116,6 +116,60 @@ abstract class AppLocalizations {
   /// **'Create an account'**
   String get createAccount;
 
+  /// No description provided for @inviteTokenButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite token'**
+  String get inviteTokenButton;
+
+  /// No description provided for @inviteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your account'**
+  String get inviteTitle;
+
+  /// No description provided for @inviteStepToken.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite token'**
+  String get inviteStepToken;
+
+  /// No description provided for @inviteStepTokenIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the invite token you received from the administrator. It identifies your account: you will not have to type the user name.'**
+  String get inviteStepTokenIntro;
+
+  /// No description provided for @inviteTokenInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'This invite token is not valid.'**
+  String get inviteTokenInvalid;
+
+  /// No description provided for @inviteAccountFound.
+  ///
+  /// In en, this message translates to:
+  /// **'Account found'**
+  String get inviteAccountFound;
+
+  /// No description provided for @invitePasswordIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose the master password of {username}.'**
+  String invitePasswordIntro(Object username);
+
+  /// No description provided for @inviteUsernameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'User name'**
+  String get inviteUsernameLabel;
+
+  /// No description provided for @inviteContinue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get inviteContinue;
+
   /// No description provided for @forgotRecovery.
   ///
   /// In en, this message translates to:

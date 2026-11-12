@@ -412,6 +412,58 @@ func (s *Store) GetUserBySessionToken(token string) (*User, error) {
 	return &u, nil
 }
 
+// FindPendingUserByInviteToken returns the pending user the invite token
+// belongs to.
+//
+// The token is only stored hashed, so it cannot be looked up directly: the
+// pending users are scanned instead and the hash is compared in constant
+// time. The number of pending users is small (an account waits for its first
+// access) and the token is 256 bits of randomness, so neither the scan nor a
+// brute force is a concern.
+func (s *Store) FindPendingUserByInviteToken(token string) (*User, error) {
+	if token == "" {
+		return nil, ErrNotFound
+	}
+	rows, err := s.db.Query(
+		`SELECT id, username, status, invite_token_hash, salt, kdf_algorithm, kdf_params,
+		        auth_hash, recovery_hash, vault_key_wrapped, vault_key_wrapped_recov,
+		        vault_blob, vault_nonce, vault_revision, created_at, updated_at, last_login_at
+		 FROM users WHERE status = ? ORDER BY id`, StatusPending)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	candidates := make([]*User, 0, 4)
+	for rows.Next() {
+		var u User
+		var inviteHash []byte
+		if err := rows.Scan(
+			&u.ID, &u.Username, &u.Status, &inviteHash, &u.Salt, &u.KDFAlgorithm,
+			&u.kdfParamsRaw, &u.AuthHash, &u.RecoveryHash, &u.VaultKeyWrapped,
+			&u.VaultKeyWrappedRecov, &u.VaultBlob, &u.VaultNonce, &u.VaultRevision,
+			&u.createdAtRaw, &u.updatedAtRaw, &u.lastLoginRaw,
+		); err != nil {
+			return nil, err
+		}
+		// A nil hash is possible for a user whose token was already used:
+		// the comparison is still constant time on the bytes.
+		if crypto.SecureEqual(inviteHash, hashToken([]byte(token))) {
+			u.InviteTokenHash = inviteHash
+			candidates = append(candidates, &u)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(candidates) == 0 {
+		return nil, ErrNotFound
+	}
+	// The tokens are random: two pending users sharing one is impossible.
+	// If it ever happened, the first one wins.
+	return candidates[0], nil
+}
+
 // DeleteSession revokes a session.
 func (s *Store) DeleteSession(token string) error {
 	_, err := s.db.Exec(`DELETE FROM sessions WHERE token_hash = ?`, hashToken([]byte(token)))
