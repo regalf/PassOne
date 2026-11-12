@@ -10,6 +10,10 @@ server/test/*.db
 server/test/*.db-shm
 server/test/*.db-wal
 server/test/config.yaml
+server/test/*.log
+# Self-signed TLS material of the integration test server (private key!)
+server/test/integration-tls-cert.pem
+server/test/integration-tls-key.pem
 
 # Flutter native build artifacts
 .cxx/

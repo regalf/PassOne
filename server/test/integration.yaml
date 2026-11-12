@@ -1,0 +1,15 @@
+# Integration test configuration.
+#
+# Used by the Flutter e2e tests (app/test/*_e2e_test.dart):
+#   passone serve --config test/integration.yaml
+addr: "127.0.0.1:18334"
+db_path: "test/integration.db"
+allow_registration: true
+enable_ui: false
+admin_token: "test-admin-token"
+tls_cert: ""
+tls_key: ""
+tls_mode: "none"
+session_ttl: 720h0m0s
+max_kdf_memory_mb: 2048
+max_kdf_iterations: 10000000

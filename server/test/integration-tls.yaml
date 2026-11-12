@@ -1,0 +1,17 @@
+# Integration test configuration for the TLS pairing tests.
+#
+# Used by app/test/pairing_e2e_test.dart:
+#   passone serve --config test/integration-tls.yaml
+# The certificate is self-signed: the client must be paired with its SPKI
+# fingerprint before it accepts the connection.
+addr: "127.0.0.1:18331"
+db_path: "test/integration-tls.db"
+allow_registration: true
+enable_ui: false
+admin_token: "test-admin-token"
+tls_cert: "test/integration-tls-cert.pem"
+tls_key: "test/integration-tls-key.pem"
+tls_mode: "selfsigned"
+session_ttl: 720h0m0s
+max_kdf_memory_mb: 2048
+max_kdf_iterations: 10000000
