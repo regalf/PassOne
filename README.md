@@ -21,6 +21,9 @@ go build -o passone ./cmd/passone
 ./passone serve
 ```
 
+The generated `config.yaml` documents every setting inline, with the possible
+values: it can be edited without consulting the source.
+
 On first start, if `admin_token` is not in `config.yaml`, one is generated and printed: **save it**.
 
 ### Creating a user
