@@ -67,6 +67,11 @@ class SessionState {
   /// none): surfaced as a banner + dedicated resolution screen.
   final List<VaultConflict> conflicts;
 
+  /// True when the account was created with PBKDF2 because Argon2id is not
+  /// available on this device: the key derivation is weaker and the user is
+  /// told about it.
+  final bool kdfDowngraded;
+
   const SessionState({
     this.status = AuthStatus.unauthenticated,
     this.user,
@@ -81,6 +86,7 @@ class SessionState {
     this.serverStatus = ServerStatus.checking,
     this.cacheExpiredNotice = false,
     this.conflicts = const [],
+    this.kdfDowngraded = false,
   });
 
   SessionState copyWith({
@@ -97,6 +103,7 @@ class SessionState {
     ServerStatus? serverStatus,
     bool? cacheExpiredNotice,
     List<VaultConflict>? conflicts,
+    bool? kdfDowngraded,
   }) {
     return SessionState(
       status: status ?? this.status,
@@ -113,6 +120,7 @@ class SessionState {
       serverStatus: serverStatus ?? this.serverStatus,
       cacheExpiredNotice: cacheExpiredNotice ?? this.cacheExpiredNotice,
       conflicts: conflicts ?? this.conflicts,
+      kdfDowngraded: kdfDowngraded ?? this.kdfDowngraded,
     );
   }
 
@@ -176,7 +184,7 @@ class SessionController extends StateNotifier<SessionState> {
         activeCache = null;
         // The bioKey is deleted by the wipe, so biometrics must be turned off
         // both on disk and in the state that is built below.
-        settings = settings.copyWithBiometricsEnabled(false);
+        settings = settings.copyWith(biometricsEnabled: false);
         await _wipeLocalState(settings);
       }
     }
@@ -208,15 +216,19 @@ class SessionController extends StateNotifier<SessionState> {
   /// [settings] is the current settings to persist (biometrics disabled): it
   /// must be passed explicitly from [_init], where the state is not built yet
   /// and still holds the defaults.
-  Future<void> _wipeLocalState([AppSettings? settings]) async {
+  ///
+  /// Returns the settings that were persisted, so the caller can rebuild the
+  /// state consistently with what is on disk.
+  Future<AppSettings> _wipeLocalState([AppSettings? settings]) async {
     if (_autofillSupported) {
       _autofillKey = null;
       unawaited(_autofill.clearSessionKey());
     }
     await _biometrics.deleteBioKey();
     await _repo.clearCache();
-    final s = (settings ?? state.settings).copyWithBiometricsEnabled(false);
+    final s = (settings ?? state.settings).copyWith(biometricsEnabled: false);
     await _repo.save(s);
+    return s;
   }
 
   /// Checks whether the configured server is reachable and updates the cloud
@@ -253,14 +265,14 @@ class SessionController extends StateNotifier<SessionState> {
 
   /// Persists whether the unlock screen should keep showing the offline warning.
   Future<void> setHideOfflineWarning(bool v) async {
-    final settings = state.settings.copyWithHideOfflineWarning(v);
+    final settings = state.settings.copyWith(hideOfflineWarning: v);
     await _repo.save(settings);
     state = state.copyWith(settings: settings);
   }
 
   /// Changes how long the local cache stays usable without a server sync.
   Future<void> setCacheExpiry(CacheExpiry expiry) async {
-    final settings = state.settings.copyWithCacheExpiry(expiry);
+    final settings = state.settings.copyWith(cacheExpiry: expiry);
     await _repo.save(settings);
     state = state.copyWith(settings: settings);
   }
@@ -298,10 +310,17 @@ class SessionController extends StateNotifier<SessionState> {
   /// when the address did not change: pointing at a different server must not
   /// silently reuse (and thereby trust) a pin created for another server.
   Future<void> setServerUrl(String url) async {
-    final base = url.trim().replaceAll(RegExp(r'/+$'), '');
+    // The address is normalized here and not only in the UI: every entry
+    // point (login, settings, registration, pairing) must end up with an
+    // absolute URL. An address without a scheme ("192.168.1.8:8321") would
+    // otherwise be parsed as a URI with an invalid scheme and every request
+    // would fail with a cryptic FormatException.
+    final trimmed = url.trim();
+    final base =
+        trimmed.isEmpty ? '' : PassOneClient.normalizeBaseUrl(trimmed);
     final changed = base != state.settings.serverUrl;
     final pin = changed ? null : state.settings.serverPin;
-    final settings = state.settings.copyWithServerPin(pin).copyWithServerUrl(base);
+    final settings = state.settings.copyWith(serverPin: () => pin, serverUrl: base);
     await _repo.save(settings);
     _client = PassOneClient(baseUrl: base, serverPin: pin);
     state = state.copyWith(settings: settings);
@@ -317,7 +336,7 @@ class SessionController extends StateNotifier<SessionState> {
           0, 'invalid_pairing_code', 'Invalid pairing code.');
     }
     await setServerUrl(url);
-    final settings = state.settings.copyWithServerPin(fp);
+    final settings = state.settings.copyWith(serverPin: () => fp);
     await _repo.save(settings);
     _client = PassOneClient(baseUrl: settings.serverUrl, serverPin: fp);
     state = state.copyWith(settings: settings);
@@ -326,7 +345,7 @@ class SessionController extends StateNotifier<SessionState> {
   /// Removes the TLS pin: the connection goes back to the unverified state and
   /// the app will ask for a new pairing code on the next server contact.
   Future<void> clearPin() async {
-    final settings = state.settings.copyWithServerPin(null);
+    final settings = state.settings.copyWith(serverPin: () => null);
     await _repo.save(settings);
     _client = PassOneClient(baseUrl: settings.serverUrl);
     state = state.copyWith(settings: settings);
@@ -338,7 +357,7 @@ class SessionController extends StateNotifier<SessionState> {
       .healthCheck();
 
   Future<void> setLockTimeout(LockTimeout timeout) async {
-    final settings = state.settings.copyWithLockTimeout(timeout);
+    final settings = state.settings.copyWith(lockTimeout: timeout);
     await _repo.save(settings);
     state = state.copyWith(settings: settings);
     if (state.status == AuthStatus.unlocked) {
@@ -347,14 +366,14 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   Future<void> setLastUsername(String username) async {
-    final settings = state.settings.copyWithLastUsername(username);
+    final settings = state.settings.copyWith(lastUsername: () => username);
     await _repo.save(settings);
     state = state.copyWith(settings: settings);
   }
 
   /// Sets the forced language ('it'/'en') or returns to the system language (null).
   Future<void> setLanguageCode(String? code) async {
-    final settings = state.settings.copyWithLanguageCode(code);
+    final settings = state.settings.copyWith(languageCode: () => code);
     await _repo.save(settings);
     state = state.copyWith(settings: settings);
   }
@@ -410,8 +429,21 @@ class SessionController extends StateNotifier<SessionState> {
       await setServerUrl(serverUrl);
     }
     final salt = VaultCrypto.randomBytes(16);
-    final kdf = KdfParams.argon2id();
-    final kek = await _deriveKek(password, salt, kdf);
+    var kdf = const KdfParams.argon2id();
+    var downgraded = false;
+    Uint8List kek;
+    try {
+      kek = await _deriveKek(password, salt, kdf);
+    } on KdfUnavailableException {
+      // Argon2id is not available on this device: register explicitly with
+      // PBKDF2 and tell the user. A silent downgrade would be much worse: the
+      // server would store argon2id parameters while the key was actually
+      // derived with PBKDF2, and the account would then be unusable from
+      // every other device.
+      kdf = const KdfParams.pbkdf2(iterations: 600000);
+      kek = await _deriveKek(password, salt, kdf);
+      downgraded = true;
+    }
     final authHashB64 = VaultCrypto.bytesToB64(await sha256Bytes(kek));
     final vaultKey = VaultCrypto.generateVaultKey();
 
@@ -457,6 +489,7 @@ class SessionController extends StateNotifier<SessionState> {
       cache: cache,
       vaultKey: vaultKey,
       vault: vaultData,
+      kdfDowngraded: downgraded,
     );
     _scheduleLock();
     return recoveryKey;
@@ -587,7 +620,7 @@ class SessionController extends StateNotifier<SessionState> {
     final updated = _cacheWithBio(cache, bioWrapped);
     state = state.copyWith(
       cache: updated,
-      settings: state.settings.copyWithBiometricsEnabled(true),
+      settings: state.settings.copyWith(biometricsEnabled: true),
     );
     await _repo.saveCache(updated);
     await _repo.save(state.settings);
@@ -600,7 +633,7 @@ class SessionController extends StateNotifier<SessionState> {
     final updated = cache == null ? null : _cacheWithBio(cache, null);
     state = state.copyWith(
       cache: updated,
-      settings: state.settings.copyWithBiometricsEnabled(false),
+      settings: state.settings.copyWith(biometricsEnabled: false),
     );
     if (updated != null) await _repo.saveCache(updated);
     await _repo.save(state.settings);
@@ -709,6 +742,33 @@ class SessionController extends StateNotifier<SessionState> {
     return manual;
   }
 
+  /// True when the error means the session token is no longer accepted by
+  /// the server (expired, revoked by a password change or by a recovery).
+  bool _isSessionExpired(Object e) => e is ApiException && e.status == 401;
+
+  /// Locks the vault when the server rejects the session token.
+  ///
+  /// The encrypted cache is kept, so the vault can still be opened offline
+  /// with the master password; only the dead token and the decrypted vault
+  /// are dropped from memory.
+  void _handleSessionExpired() {
+    if (state.status == AuthStatus.unauthenticated) return;
+    _lockTimer?.cancel();
+    if (_autofillSupported) {
+      _autofillKey = null;
+      unawaited(_autofill.clearSessionKey());
+    }
+    state = SessionState(
+      status: state.cache != null
+          ? AuthStatus.locked
+          : AuthStatus.unauthenticated,
+      user: state.user,
+      settings: state.settings,
+      cache: state.cache,
+      serverStatus: ServerStatus.online,
+    );
+  }
+
   void _scheduleLock() {
     _lockTimer?.cancel();
     final minutes = state.settings.lockTimeout.minutes;
@@ -814,12 +874,16 @@ class SessionController extends StateNotifier<SessionState> {
   /// 409 the remote vault is fetched, merged (LWW) and retried; on network
   /// failures the local edit is persisted as pending ([pendingSync]) and the
   /// method returns false without throwing.
+  ///
+  /// Every failure path keeps the local edit: the encrypted blob is written
+  /// to the cache as pending before the error is rethrown. Otherwise the next
+  /// pull would replace the vault with the server copy and the edit would be
+  /// lost without any notice.
   Future<bool> _pushVault(VaultData vault) async {
     final vaultKey = state.vaultKey!;
     final token = state.token!;
     var current = vault;
     var revision = state.cache!.revision;
-    var remote = false;
     for (var attempt = 0; attempt < 3; attempt++) {
       final (blob, nonce) = await VaultCrypto.encrypt(
           vaultKey, VaultCrypto.encodeJson(current.toJson()));
@@ -830,8 +894,7 @@ class SessionController extends StateNotifier<SessionState> {
           blobB64: VaultCrypto.bytesToB64(blob),
           nonceB64: VaultCrypto.bytesToB64(nonce),
         );
-        await _updateCache(
-            blob: blob, nonce: nonce, revision: newRev, remote: remote);
+        await _updateCache(blob: blob, nonce: nonce, revision: newRev);
         if (state.serverStatus == ServerStatus.offline) {
           state = state.copyWith(serverStatus: ServerStatus.online);
         }
@@ -842,7 +905,20 @@ class SessionController extends StateNotifier<SessionState> {
           await _persistPending(blob, nonce, revision, current);
           return false;
         }
-        if (!e.isConflict) rethrow;
+        if (e.status == 401) {
+          // The server no longer accepts the session token: keep the local
+          // edit and lock the vault.
+          await _persistPending(blob, nonce, revision, current, offline: false);
+          _handleSessionExpired();
+          rethrow;
+        }
+        if (!e.isConflict) {
+          // The server answered with an error (auth, payload, ...): the edit
+          // stays local and pending, the error is still reported to the UI.
+          await _persistPending(blob, nonce, revision, current,
+              offline: false);
+          rethrow;
+        }
         try {
           final latest = await client.vaultGet(token);
           final remoteVault = VaultData.fromJson(VaultCrypto.decodeJson(
@@ -859,12 +935,12 @@ class SessionController extends StateNotifier<SessionState> {
             state = state.copyWith(conflicts: found);
           }
           revision = latest.revision;
-          remote = true;
         } catch (e2) {
           if (_isNetworkError(e2)) {
             await _persistPending(blob, nonce, revision, current);
             return false;
           }
+          await _persistPending(blob, nonce, revision, current, offline: false);
           rethrow;
         }
       } catch (e) {
@@ -874,9 +950,15 @@ class SessionController extends StateNotifier<SessionState> {
           await _persistPending(blob, nonce, revision, current);
           return false;
         }
+        await _persistPending(blob, nonce, revision, current, offline: false);
         rethrow;
       }
     }
+    // The retries are exhausted: keep the edit locally, it is pushed on the
+    // next successful connection.
+    final (blob, nonce) =
+        await VaultCrypto.encrypt(vaultKey, VaultCrypto.encodeJson(current.toJson()));
+    await _persistPending(blob, nonce, revision, current, offline: false);
     throw ApiException(0, 'sync_failed', 'Sincronizzazione non riuscita.');
   }
 
@@ -892,18 +974,20 @@ class SessionController extends StateNotifier<SessionState> {
   /// Keeps the local edit: persists the encrypted [blob] with the current
   /// [revision] and marks the cache as [CachedVault.pendingSync] so it is
   /// pushed on the next connection (and survives an app restart).
+  ///
+  /// [offline] is false when the server answered with an error: the server
+  /// is reachable, the edit is simply not accepted (yet).
   Future<void> _persistPending(
-      Uint8List blob, Uint8List nonce, int revision, VaultData vault) async {
+      Uint8List blob, Uint8List nonce, int revision, VaultData vault,
+      {bool offline = true}) async {
     await _updateCache(
-        blob: blob,
-        nonce: nonce,
-        revision: revision,
-        remote: false,
-        pending: true);
+        blob: blob, nonce: nonce, revision: revision, pending: true);
     if (state.vault != null && !identical(state.vault, vault)) {
       state = state.copyWith(vault: vault);
     }
-    state = state.copyWith(serverStatus: ServerStatus.offline);
+    if (offline) {
+      state = state.copyWith(serverStatus: ServerStatus.offline);
+    }
   }
 
   /// Downloads the vault from the server and merges (LWW) it with the local one.
@@ -912,7 +996,15 @@ class SessionController extends StateNotifier<SessionState> {
     final vaultKey = state.vaultKey;
     final token = state.token;
     if (cache == null || vaultKey == null || token == null) return;
-    final latest = await client.vaultGet(token);
+    final VaultRemote latest;
+    try {
+      latest = await client.vaultGet(token);
+    } on ApiException catch (e) {
+      // The session is no longer valid: lock the vault instead of showing a
+      // generic sync error.
+      if (_isSessionExpired(e)) _handleSessionExpired();
+      rethrow;
+    }
     if (latest.revision <= cache.revision) return;
     final remoteVault = VaultData.fromJson(VaultCrypto.decodeJson(
         await VaultCrypto.decrypt(vaultKey, latest.blob, latest.nonce)));
@@ -925,10 +1017,7 @@ class SessionController extends StateNotifier<SessionState> {
         : remoteVault;
     state = state.copyWith(vault: merged);
     await _updateCache(
-        blob: latest.blob,
-        nonce: latest.nonce,
-        revision: latest.revision,
-        remote: true);
+        blob: latest.blob, nonce: latest.nonce, revision: latest.revision);
     unawaited(_syncAutofillSnapshot(merged));
   }
 
@@ -936,7 +1025,6 @@ class SessionController extends StateNotifier<SessionState> {
     required Uint8List blob,
     required Uint8List nonce,
     required int revision,
-    required bool remote,
     bool pending = false,
   }) async {
     final cache = state.cache!;
@@ -968,8 +1056,11 @@ class SessionController extends StateNotifier<SessionState> {
         await client.logout(token);
       } catch (_) {}
     }
-    await _wipeLocalState();
-    state = SessionState();
+    // The settings (server address, TLS pin, preferences) are kept: they are
+    // needed to log in again and they are already persisted on disk. Only the
+    // secrets and the cache are wiped.
+    final settings = await _wipeLocalState();
+    state = SessionState(settings: settings);
   }
 
   Future<void> logoutAll() async {
@@ -979,8 +1070,8 @@ class SessionController extends StateNotifier<SessionState> {
         await client.logoutAll(token);
       } catch (_) {}
     }
-    await _wipeLocalState();
-    state = SessionState();
+    final settings = await _wipeLocalState();
+    state = SessionState(settings: settings);
   }
 
   /// Master password change. [generateRecovery] creates/rotates the recovery key,

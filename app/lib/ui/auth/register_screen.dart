@@ -81,6 +81,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if (recoveryKey != null) {
         await _showRecoveryKey(recoveryKey);
       }
+      // The device could not use Argon2id: the account was created with
+      // PBKDF2, the user must know about it.
+      if (ref.read(sessionControllerProvider).kdfDowngraded && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(context.l10n.kdfDowngradedNotice)));
+      }
       widget.onDone?.call();
       // If the registration happened from a pushed route (LoginScreen ->
       // Create account), it returns to the root: the home screen already shows the vault.

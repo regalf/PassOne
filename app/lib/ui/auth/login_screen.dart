@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 
 import '../../api/client.dart';
+import '../../crypto/kdf.dart';
 import '../../l10n/l10n.dart';
 import '../../state/providers.dart';
 import '../../state/session.dart';
@@ -58,11 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  String _normalizeServer(String raw) {
-    var s = raw.trim();
-    if (!s.contains('://')) s = 'https://$s';
-    return s.replaceAll(RegExp(r'/+$'), '');
-  }
+  String _normalizeServer(String raw) => PassOneClient.normalizeBaseUrl(raw);
 
   bool _looksLikeUrl(String s) {
     final uri = Uri.tryParse(s);
@@ -75,7 +72,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       setState(() => _error = context.l10n.invalidServerUrl);
       return;
     }
+    // A plain HTTP address sends the password verifier and the session
+    // token in cleartext: ask for an explicit confirmation.
+    if (server.startsWith('http://') && !await _confirmCleartext()) {
+      return;
+    }
     await _probeServer(server);
+  }
+
+  /// Asks the user to confirm the use of an unencrypted (HTTP) address.
+  Future<bool> _confirmCleartext() async {
+    final l10n = context.l10n;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.cleartextWarningTitle),
+        content: Text(l10n.cleartextWarning),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.connectButton),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
   }
 
   /// Reachability check + switch to the login step. On a TLS pairing/change
@@ -171,6 +196,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) setState(() => _error = e.message);
     } on WrongPasswordException {
       if (mounted) setState(() => _error = context.l10n.invalidCredentials);
+    } on KdfUnavailableException {
+      if (mounted) setState(() => _error = context.l10n.kdfUnavailable);
+    } on InvalidKdfParamsException {
+      if (mounted) setState(() => _error = context.l10n.invalidKdfParams);
     } catch (e) {
       if (mounted) setState(() => _error = context.l10n.unexpectedError(e));
     } finally {
@@ -191,7 +220,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final invite = _showSetupInvite;
     if (invite != null) {
       return RegisterScreen(
-        serverUrl: _serverController.text.trim(),
+        serverUrl: _normalizeServer(_serverController.text),
         initialUsername: invite,
         inviteMode: true,
         onDone: () {
@@ -290,7 +319,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Widget _buildLoginStep(ThemeData theme) {
     final l10n = context.l10n;
-    final server = _serverController.text.trim();
+    // The normalized address is shown and used: it is the one the client
+    // will actually talk to.
+    final server = _normalizeServer(_serverController.text);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,

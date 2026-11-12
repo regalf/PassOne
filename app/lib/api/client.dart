@@ -7,6 +7,15 @@ import 'package:http/io_client.dart';
 
 import 'tls.dart';
 
+/// Thrown by the pinned connection when the certificate presented by the
+/// server does not match the fingerprint the device is paired with.
+class _PinningFailure implements Exception {
+  const _PinningFailure();
+
+  @override
+  String toString() => 'The server certificate does not match the pinned fingerprint.';
+}
+
 /// API exception with a semantic code.
 class ApiException implements Exception {
   final int status;
@@ -24,6 +33,10 @@ class ApiException implements Exception {
   /// longer matches it (e.g. after `passone tls rotate`): re-pairing is
   /// required, treating the change as a possible key compromise.
   static const codeCertChanged = 'cert_changed';
+
+  /// The configured server address is not a valid absolute URL (e.g. it has
+  /// no scheme or no host).
+  static const codeInvalidServerUrl = 'invalid_server_url';
 
   bool get isConflict => status == 409;
 
@@ -143,6 +156,21 @@ class VaultRemote {
 class PassOneClient {
   final String baseUrl;
 
+  /// Normalizes a user-entered server address: the https:// scheme is added
+  /// when missing and the trailing slashes are removed.
+  ///
+  /// Shared by the login screen and the settings screen: an address entered
+  /// without a scheme ("example.com") would otherwise be parsed as a relative
+  /// URI and every request would fail with an opaque error.
+  static String normalizeBaseUrl(String raw) {
+    var s = raw.trim();
+    if (!s.contains('://')) s = 'https://$s';
+    return s.replaceAll(RegExp(r'/+$'), '');
+  }
+
+  /// True when the address uses plain HTTP (unencrypted transport).
+  static bool isCleartext(String url) =>
+      url.trim().toLowerCase().startsWith('http://');
   /// SPKI fingerprint (64 lowercase hex chars) the server certificate must
   /// match, or null when the connection is not pinned (plain HTTP, or HTTPS
   /// with a public CA). Once set, any other certificate is rejected.
@@ -164,9 +192,56 @@ class PassOneClient {
   }) : _http = httpClient ?? http.Client() {
     if (httpClient == null && baseUrl.startsWith('https://')) {
       final io = HttpClient();
-      io.badCertificateCallback = (cert, host, port) => _verify(cert);
+      final pin = serverPin?.trim().toLowerCase();
+      if (pin != null && pin.length == 64) {
+        // A pin is set: the certificate is always checked against it, even
+        // when it would be accepted by a public CA (see [_pinnedConnection]).
+        io.connectionFactory = (Uri uri, String? proxyHost, int? proxyPort) =>
+            _pinnedConnection(uri, pin);
+      } else {
+        io.badCertificateCallback = (cert, host, port) => _verify(cert);
+      }
       _http = IOClient(io);
     }
+  }
+
+  /// Opens a TLS connection and enforces the SPKI pin on the peer
+  /// certificate.
+  ///
+  /// The certificate is accepted at the TLS level (so that a self-signed one
+  /// works on any host or IP) and the pin is then verified on the established
+  /// connection. Unlike [HttpClient.badCertificateCallback] — which is only
+  /// consulted when the normal chain verification fails — this also rejects a
+  /// certificate that is validly signed by a public CA but is not the one the
+  /// device is paired with.
+  Future<ConnectionTask<Socket>> _pinnedConnection(Uri uri, String pin) async {
+    final socket = await Socket.connect(uri.host, uri.port);
+    late final SecureSocket secure;
+    try {
+      secure = await SecureSocket.secure(
+        socket,
+        onBadCertificate: (cert) {
+          lastCertFingerprint = spkiFingerprintHex(cert);
+          // Accepted here, verified below against the pin.
+          return true;
+        },
+      );
+    } catch (e) {
+      socket.destroy();
+      rethrow;
+    }
+
+    final peer = secure.peerCertificate;
+    final fp = peer == null ? null : spkiFingerprintHex(peer);
+    lastCertFingerprint = fp;
+    if (fp == null || fp != pin) {
+      secure.destroy();
+      throw const _PinningFailure();
+    }
+    return ConnectionTask.fromSocket<Socket>(
+      Future<Socket>.value(secure),
+      () => secure.destroy(),
+    );
   }
 
   /// Enforces the SPKI pin when the certificate fails normal chain
@@ -187,7 +262,17 @@ class PassOneClient {
     return false;
   }
 
-  Uri _uri(String path) => Uri.parse('$baseUrl/api/v1$path');
+  Uri _uri(String path) {
+    // tryParse instead of parse: an address without a scheme
+    // ("192.168.1.8:8321") is not a valid URI, and a FormatException would
+    // surface as an opaque "Unable to reach the server".
+    final uri = Uri.tryParse('$baseUrl/api/v1$path');
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      throw ApiException(0, ApiException.codeInvalidServerUrl,
+          'Invalid server address: $baseUrl');
+    }
+    return uri;
+  }
 
   Map<String, String> _headers(String? token) => {
         'Content-Type': 'application/json',
@@ -220,6 +305,10 @@ class PassOneClient {
       return _decode(res, res.request!.url);
     } on ApiException {
       rethrow;
+    } on _PinningFailure {
+      // The certificate does not match the pin: the server identity changed.
+      throw ApiException(0, ApiException.codeCertChanged,
+          'The server certificate no longer matches the one this device trusts.');
     } catch (e) {
       final failure = lastCertFailure;
       lastCertFailure = null;
@@ -359,27 +448,26 @@ class PassOneClient {
     required String username,
     required String recoveryHashB64,
   }) async {
-    final res = await _http
-        .post(
-          _uri('/auth/recover-payload'),
-          headers: _headers(null),
-          body: jsonEncode({
-            'username': username,
-            'recovery_hash_b64': recoveryHashB64,
-          }),
-        )
-        .timeout(timeout);
-    final data = _decode(res, _uri('/auth/recover-payload')) as Map<String, dynamic>;
-    return VaultRemote.fromJson(data);
+    final data = await _send(
+      () => _http.post(
+        _uri('/auth/recover-payload'),
+        headers: _headers(null),
+        body: jsonEncode({
+          'username': username,
+          'recovery_hash_b64': recoveryHashB64,
+        }),
+      ),
+      null,
+    );
+    return VaultRemote.fromJson(data as Map<String, dynamic>);
   }
 
   Future<VaultRemote> vaultGet(String token) async {
-    final res = await _http.get(
-      _uri('/vault'),
-      headers: _headers(token),
-    ).timeout(timeout);
-    final data = _decode(res, _uri('/vault')) as Map<String, dynamic>;
-    return VaultRemote.fromJson(data);
+    final data = await _send(
+      () => _http.get(_uri('/vault'), headers: _headers(token)),
+      token,
+    );
+    return VaultRemote.fromJson(data as Map<String, dynamic>);
   }
 
   Future<int> vaultPut(
@@ -410,12 +498,21 @@ class PassOneClient {
   Future<void> healthCheck() async {
     // Goes through [_send] so a TLS handshake refusal is surfaced with the
     // pairing/pin-change codes, not as an opaque network error.
-    final data = await _send(
-        () => _http.get(Uri.parse('$baseUrl/health')), null);
+    final data = await _send(() => _http.get(_healthUri()), null);
     final status = (data as Map<String, dynamic>?)?['status'];
     if (status != 'ok') {
       throw ApiException(0, 'unreachable',
           'The server is not responding as expected');
     }
+  }
+
+  /// The health endpoint is outside the /api/v1 prefix.
+  Uri _healthUri() {
+    final uri = Uri.tryParse('$baseUrl/health');
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
+      throw ApiException(0, ApiException.codeInvalidServerUrl,
+          'Invalid server address: $baseUrl');
+    }
+    return uri;
   }
 }

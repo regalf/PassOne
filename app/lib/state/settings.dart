@@ -87,76 +87,38 @@ class AppSettings {
     this.serverPin,
   });
 
-  AppSettings copyWithServerUrl(String url) => AppSettings(
-      serverUrl: url,
-      lastUsername: lastUsername,
-      lockTimeout: lockTimeout,
-      biometricsEnabled: biometricsEnabled,
-      languageCode: languageCode,
-      serverPin: serverPin);
-  AppSettings copyWithLockTimeout(LockTimeout t) => AppSettings(
-      serverUrl: serverUrl,
-      lastUsername: lastUsername,
-      lockTimeout: t,
-      biometricsEnabled: biometricsEnabled,
-      languageCode: languageCode,
-      hideOfflineWarning: hideOfflineWarning,
-      cacheExpiry: cacheExpiry,
-      serverPin: serverPin);
-  AppSettings copyWithLastUsername(String u) => AppSettings(
-      serverUrl: serverUrl,
-      lastUsername: u,
-      lockTimeout: lockTimeout,
-      biometricsEnabled: biometricsEnabled,
-      languageCode: languageCode,
-      hideOfflineWarning: hideOfflineWarning,
-      cacheExpiry: cacheExpiry,
-      serverPin: serverPin);
-  AppSettings copyWithBiometricsEnabled(bool v) => AppSettings(
-      serverUrl: serverUrl,
-      lastUsername: lastUsername,
-      lockTimeout: lockTimeout,
-      biometricsEnabled: v,
-      languageCode: languageCode,
-      hideOfflineWarning: hideOfflineWarning,
-      cacheExpiry: cacheExpiry,
-      serverPin: serverPin);
-  AppSettings copyWithLanguageCode(String? code) => AppSettings(
-      serverUrl: serverUrl,
-      lastUsername: lastUsername,
-      lockTimeout: lockTimeout,
-      biometricsEnabled: biometricsEnabled,
-      languageCode: code,
-      hideOfflineWarning: hideOfflineWarning,
-      cacheExpiry: cacheExpiry,
-      serverPin: serverPin);
-  AppSettings copyWithHideOfflineWarning(bool v) => AppSettings(
-      serverUrl: serverUrl,
-      lastUsername: lastUsername,
-      lockTimeout: lockTimeout,
-      biometricsEnabled: biometricsEnabled,
-      languageCode: languageCode,
-      hideOfflineWarning: v,
-      cacheExpiry: cacheExpiry,
-      serverPin: serverPin);
-  AppSettings copyWithCacheExpiry(CacheExpiry e) => AppSettings(
-      serverUrl: serverUrl,
-      lastUsername: lastUsername,
-      lockTimeout: lockTimeout,
-      biometricsEnabled: biometricsEnabled,
-      languageCode: languageCode,
-      hideOfflineWarning: hideOfflineWarning,
-      cacheExpiry: e,
-      serverPin: serverPin);
-  AppSettings copyWithServerPin(String? pin) => AppSettings(
-      serverUrl: serverUrl,
-      lastUsername: lastUsername,
-      lockTimeout: lockTimeout,
-      biometricsEnabled: biometricsEnabled,
-      languageCode: languageCode,
-      hideOfflineWarning: hideOfflineWarning,
-      cacheExpiry: cacheExpiry,
-      serverPin: pin);
+  /// Returns a copy with the given fields replaced.
+  ///
+  /// A single method instead of one `copyWithX` per field: the previous
+  /// family had to list every field explicitly, and forgetting one silently
+  /// reset it to its default (e.g. changing the server URL used to reset the
+  /// cache expiry to 30 days on every login).
+  ///
+  /// Nullable fields use the callback pattern of `VaultEntry.copyWith`: pass
+  /// `() => null` to clear the value, omit the argument to keep it.
+  AppSettings copyWith({
+    String? serverUrl,
+    String? Function()? lastUsername,
+    LockTimeout? lockTimeout,
+    bool? biometricsEnabled,
+    String? Function()? languageCode,
+    bool? hideOfflineWarning,
+    CacheExpiry? cacheExpiry,
+    String? Function()? serverPin,
+  }) {
+    return AppSettings(
+      serverUrl: serverUrl ?? this.serverUrl,
+      lastUsername:
+          lastUsername != null ? lastUsername() : this.lastUsername,
+      lockTimeout: lockTimeout ?? this.lockTimeout,
+      biometricsEnabled: biometricsEnabled ?? this.biometricsEnabled,
+      languageCode:
+          languageCode != null ? languageCode() : this.languageCode,
+      hideOfflineWarning: hideOfflineWarning ?? this.hideOfflineWarning,
+      cacheExpiry: cacheExpiry ?? this.cacheExpiry,
+      serverPin: serverPin != null ? serverPin() : this.serverPin,
+    );
+  }
 }
 
 /// Encrypted vault cache + materials for offline unlock.

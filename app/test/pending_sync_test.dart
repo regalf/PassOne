@@ -250,7 +250,14 @@ void main() {
     server.online = true;
     final edited = edit(c.state.vault!);
     await expectLater(c.saveVault(edited), throwsA(isA<ApiException>()));
-    expect(c.state.pendingSync, isFalse);
+    // The error is rethrown and the server is NOT reported as unreachable:
+    // the session is simply no longer valid.
+    expect(c.state.serverStatus, isNot(ServerStatus.offline));
+    // The local edit is preserved as pending: it must not be lost when the
+    // session is rejected.
+    expect(c.state.pendingSync, isTrue);
+    // The expired session locks the vault.
+    expect(c.state.status, AuthStatus.locked);
   });
 }
 

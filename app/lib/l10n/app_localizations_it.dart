@@ -67,6 +67,28 @@ class AppLocalizationsIt extends AppLocalizations {
   String get invalidCredentials => 'Credenziali non valide.';
 
   @override
+  String get kdfUnavailable =>
+      'Questo dispositivo non può usare l\'algoritmo di derivazione della chiave richiesto dal server: il vault non può essere aperto qui.';
+
+  @override
+  String get invalidKdfParams =>
+      'Il server ha inviato parametri di derivazione della chiave non validi.';
+
+  @override
+  String get invalidFileFormat => 'Il file non è un export PassOne valido.';
+
+  @override
+  String get cleartextWarning =>
+      'Questo indirizzo usa HTTP: la connessione non è cifrata. Usa HTTPS se il server non è sulla tua rete locale.';
+
+  @override
+  String get cleartextWarningTitle => 'Connessione non cifrata';
+
+  @override
+  String get kdfDowngradedNotice =>
+      'Argon2id non è disponibile su questo dispositivo: l\'account è stato creato con PBKDF2, che è più debole. Funziona comunque sugli altri dispositivi.';
+
+  @override
   String unexpectedError(Object error) {
     return 'Errore imprevisto: $error';
   }

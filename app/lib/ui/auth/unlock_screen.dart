@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../crypto/kdf.dart';
 import '../../l10n/l10n.dart';
 import '../../state/biometrics.dart';
 import '../../state/providers.dart';
@@ -69,6 +70,10 @@ class _UnlockScreenState extends ConsumerState<UnlockScreen> {
       ref.read(sessionControllerProvider.notifier).touch();
     } on WrongPasswordException {
       if (mounted) setState(() => _error = context.l10n.invalidPassword);
+    } on KdfUnavailableException {
+      if (mounted) setState(() => _error = context.l10n.kdfUnavailable);
+    } on InvalidKdfParamsException {
+      if (mounted) setState(() => _error = context.l10n.invalidKdfParams);
     } catch (e) {
       if (mounted) setState(() => _error = context.l10n.errorPrefix(e));
     } finally {

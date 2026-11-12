@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
@@ -12,6 +13,17 @@ class PassoneDecryptException implements Exception {
   String toString() => 'Cannot decrypt the PassOne file.';
 }
 
+/// The envelope is malformed or requests KDF parameters that are not
+/// supported (out of range, unknown algorithm).
+class PassoneFormatException implements Exception {
+  PassoneFormatException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// Encrypted PassOne export format (`.passone`).
 ///
 /// A self-describing JSON envelope holding the KDF parameters and the
@@ -23,10 +35,21 @@ class PassoneFile {
   static const int version = 1;
 
   /// Encrypts [vault] with [password] and returns the `.passone` envelope.
+  ///
+  /// Argon2id is used when the native library is available, otherwise
+  /// PBKDF2-HMAC-SHA256. Unlike the server-side case, this fallback is safe:
+  /// the envelope is self-describing and carries the KDF parameters actually
+  /// used, so the file can always be decrypted again.
   static Future<String> encrypt(VaultData vault, String password) async {
     final salt = VaultCrypto.randomBytes(16);
-    final kdf = const KdfParams.argon2id();
-    final key = await Kdf().derive(password, salt, kdf);
+    KdfParams kdf = const KdfParams.argon2id();
+    Uint8List key;
+    try {
+      key = await Kdf().derive(password, salt, kdf);
+    } on KdfUnavailableException {
+      kdf = const KdfParams.pbkdf2(iterations: 600000);
+      key = await Kdf().derive(password, salt, kdf);
+    }
     final (blob, nonce) = await VaultCrypto.encrypt(
         key, VaultCrypto.encodeJson(vault.toJson()));
     return jsonEncode({
@@ -54,7 +77,9 @@ class PassoneFile {
   /// Decrypts a [content] envelope with [password].
   ///
   /// Throws [PassoneDecryptException] on wrong password, corrupted data or
-  /// unsupported format/version.
+  /// unsupported version, [PassoneFormatException] on a malformed envelope
+  /// and [KdfUnavailableException] when the requested KDF is not available
+  /// on this device.
   static Future<VaultData> decrypt(String content, String password) async {
     if (!isPassoneEnvelope(content)) {
       throw PassoneDecryptException();
@@ -63,11 +88,18 @@ class PassoneFile {
     if (decoded['version'] != version) {
       throw PassoneDecryptException();
     }
+    final KdfParams kdf;
+    try {
+      kdf = KdfParams.fromJson(decoded['kdf'] as Map<String, dynamic>);
+    } on InvalidKdfParamsException catch (e) {
+      throw PassoneFormatException(e.message);
+    } on FormatException catch (e) {
+      throw PassoneFormatException(e.message);
+    }
     try {
       final salt = VaultCrypto.b64ToBytes(decoded['salt_b64'] as String);
       final nonce = VaultCrypto.b64ToBytes(decoded['nonce_b64'] as String);
       final blob = VaultCrypto.b64ToBytes(decoded['data_b64'] as String);
-      final kdf = KdfParams.fromJson(decoded['kdf'] as Map<String, dynamic>);
       final key = await Kdf().derive(password, salt, kdf);
       final clear = await VaultCrypto.decrypt(key, blob, nonce);
       return VaultData.fromJson(VaultCrypto.decodeJson(clear));

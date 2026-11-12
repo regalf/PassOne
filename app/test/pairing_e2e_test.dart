@@ -1,16 +1,29 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:passone_app/api/client.dart';
 
 // Live pairing check against a self-signed PassOne server started for the e2e
 // run:
-//   passone serve --config <dir>/config.yaml   (tls_mode: selfsigned)
-// The expected fingerprint is the one the server printed at startup /
-// printed by `passone tls fingerprint`.
+//   passone serve --config server/test/integration-tls.yaml   (tls_mode: selfsigned)
+//
+// The expected fingerprint is the one the server prints at startup (and that
+// `passone tls fingerprint` shows). It can be overridden with the
+// PASSONE_TEST_FINGERPRINT environment variable, which is needed when the
+// test server has generated a new key pair.
+const _defaultServerFingerprint =
+    'aba5d851ff77fcaaf56b055e3ece82498de96b07660f642b38e4f8a474bc804d';
+
 void main() {
   const baseUrl = 'https://127.0.0.1:18331';
-  const serverFingerprint =
-      'aba5d851ff77fcaaf56b055e3ece82498de96b07660f642b38e4f8a474bc804d';
+  final serverFingerprint =
+      Platform.environment['PASSONE_TEST_FINGERPRINT']?.trim().toLowerCase() ??
+          _defaultServerFingerprint;
 
+  // The server may not be running: in that case every test of this file is
+  // skipped. markTestSkipped() inside setUpAll only skips the first test, so
+  // the flag is checked inside each test instead.
+  var serverUp = false;
   setUpAll(() async {
     // Same idea as the other e2e tests: skip when the pairing server is not
     // running on the expected port. An unpinned probe legitimately fails with
@@ -19,15 +32,22 @@ void main() {
       final c = PassOneClient(baseUrl: baseUrl);
       await c.healthCheck();
     } on ApiException catch (e) {
-      if (e.code == ApiException.codePairingRequired) return;
-      markTestSkipped('pairing integration server not reachable on $baseUrl');
-    } catch (_) {
+      if (e.code == ApiException.codePairingRequired) {
+        serverUp = true;
+        return;
+      }
+    } catch (_) {}
+  });
+
+  void skipIfNoServer() {
+    if (!serverUp) {
       markTestSkipped('pairing integration server not reachable on $baseUrl');
     }
-  });
+  }
 
   test('unpinned connection reports pairing_required with the server fingerprint',
       () async {
+    skipIfNoServer();
     final client = PassOneClient(baseUrl: baseUrl);
     try {
       await client.healthCheck();
@@ -43,6 +63,7 @@ void main() {
   });
 
   test('prelogin without pin also surfaces pairing_required', () async {
+    skipIfNoServer();
     final client = PassOneClient(baseUrl: baseUrl);
     try {
       await client.prelogin('no_such_user');
@@ -53,6 +74,7 @@ void main() {
   });
 
   test('matching pin trusts the server', () async {
+    skipIfNoServer();
     final client = PassOneClient(
       baseUrl: baseUrl,
       serverPin: serverFingerprint,
@@ -63,6 +85,7 @@ void main() {
   });
 
   test('mismatched pin reports cert_changed', () async {
+    skipIfNoServer();
     final wrong =
         'ddddddddffffffffddddddddffffffffddddddddffffffffddddddddffffffff';
     final client = PassOneClient(baseUrl: baseUrl, serverPin: wrong);
@@ -76,6 +99,7 @@ void main() {
   });
 
   test('plain text HTTP URL never uses TLS pinning', () async {
+    skipIfNoServer();
     final client = PassOneClient(baseUrl: 'http://127.0.0.1:18331');
     // No TLS callback involved; reaching the service is not tested here, only
     // that no cert state leak happens on construction.

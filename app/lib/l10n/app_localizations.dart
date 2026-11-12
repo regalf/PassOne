@@ -212,6 +212,42 @@ abstract class AppLocalizations {
   /// **'Invalid credentials.'**
   String get invalidCredentials;
 
+  /// No description provided for @kdfUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'This device cannot use the key derivation algorithm required by the server. The vault cannot be opened here.'**
+  String get kdfUnavailable;
+
+  /// No description provided for @invalidKdfParams.
+  ///
+  /// In en, this message translates to:
+  /// **'The server sent invalid key derivation parameters.'**
+  String get invalidKdfParams;
+
+  /// No description provided for @invalidFileFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'The file is not a valid PassOne export.'**
+  String get invalidFileFormat;
+
+  /// No description provided for @cleartextWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This address uses HTTP: the connection is not encrypted. Use HTTPS unless the server is on your local network.'**
+  String get cleartextWarning;
+
+  /// No description provided for @cleartextWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unencrypted connection'**
+  String get cleartextWarningTitle;
+
+  /// No description provided for @kdfDowngradedNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Argon2id is not available on this device: the account was created with PBKDF2, which is weaker. It still works on your other devices.'**
+  String get kdfDowngradedNotice;
+
   /// No description provided for @unexpectedError.
   ///
   /// In en, this message translates to:

@@ -11,16 +11,20 @@ import 'package:passone_app/state/settings.dart';
 void main() {
   const baseUrl = 'http://127.0.0.1:18334';
 
+  // The integration server may not be running: in that case every test of
+  // this file is skipped. markTestSkipped() inside setUpAll only skips the
+  // first test, so the flag is checked inside each test instead.
+  var serverUp = false;
   setUpAll(() async {
-    // The integration server may not be running: in that case skip.
-    final ok = await _serverUp(baseUrl);
-    if (!ok) {
-      markTestSkipped(
-          'integration server not reachable on $baseUrl (start: passone serve --config test/integration.yaml)');
-    }
+    serverUp = await _serverUp(baseUrl);
   });
 
   test('register with recovery + recover + login end-to-end', () async {
+    if (!serverUp) {
+      markTestSkipped(
+          'integration server not reachable on $baseUrl (start: passone serve --config test/integration.yaml)');
+      return;
+    }
     final client = PassOneClient(baseUrl: baseUrl);
     final username = 'rec_e2e_${DateTime.now().millisecondsSinceEpoch}';
     const password = 'test-password-123';

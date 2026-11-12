@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../api/client.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/l10n.dart';
 import '../../state/app_info.dart';
@@ -255,9 +256,40 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
-    if (url != null && url.isNotEmpty) {
-      await ref.read(sessionControllerProvider.notifier).setServerUrl(url);
+    if (url == null || url.isEmpty) return;
+    if (!context.mounted) return;
+    // The address is normalized the same way as in the login screen: without
+    // a scheme it would be parsed as a relative URI and every request would
+    // fail.
+    final base = PassOneClient.normalizeBaseUrl(url);
+    if (PassOneClient.isCleartext(base) && !await _confirmCleartext(context)) {
+      return;
     }
+    if (!context.mounted) return;
+    await ref.read(sessionControllerProvider.notifier).setServerUrl(base);
+  }
+
+  /// Asks the user to confirm the use of an unencrypted (HTTP) address.
+  Future<bool> _confirmCleartext(BuildContext context) async {
+    final l10n = context.l10n;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.cleartextWarningTitle),
+        content: Text(l10n.cleartextWarning),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l10n.save),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
   }
 
   Future<void> _confirmAlways(

@@ -4,6 +4,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../crypto/kdf.dart';
 import '../../crypto/models.dart';
 import '../../crypto/passone_file.dart';
 import '../../crypto/totp.dart';
@@ -76,6 +77,10 @@ class _ImportScreenState extends ConsumerState<ImportScreen> {
           .importedCount(data.entries.length, merged.entries.length));
     } on PassoneDecryptException {
       setState(() => _error = context.l10n.importWrongPassword);
+    } on PassoneFormatException {
+      setState(() => _error = context.l10n.invalidFileFormat);
+    } on KdfUnavailableException {
+      setState(() => _error = context.l10n.kdfUnavailable);
     } catch (e) {
       setState(() => _error = context.l10n.importFailed(e));
     } finally {

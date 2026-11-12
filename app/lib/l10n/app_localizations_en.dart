@@ -68,6 +68,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get invalidCredentials => 'Invalid credentials.';
 
   @override
+  String get kdfUnavailable =>
+      'This device cannot use the key derivation algorithm required by the server. The vault cannot be opened here.';
+
+  @override
+  String get invalidKdfParams =>
+      'The server sent invalid key derivation parameters.';
+
+  @override
+  String get invalidFileFormat => 'The file is not a valid PassOne export.';
+
+  @override
+  String get cleartextWarning =>
+      'This address uses HTTP: the connection is not encrypted. Use HTTPS unless the server is on your local network.';
+
+  @override
+  String get cleartextWarningTitle => 'Unencrypted connection';
+
+  @override
+  String get kdfDowngradedNotice =>
+      'Argon2id is not available on this device: the account was created with PBKDF2, which is weaker. It still works on your other devices.';
+
+  @override
   String unexpectedError(Object error) {
     return 'Unexpected error: $error';
   }
